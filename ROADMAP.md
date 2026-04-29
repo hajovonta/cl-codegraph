@@ -6,21 +6,21 @@
 - [x] Package membership and exports
 - [x] Class hierarchy (subclassOf, hasSlot)
 - [x] Generic function structure (methodOf, specializesOn)
-- [x] Call graph via `find-function-callees`
+- [x] Call graph via `find-function-callees` (forward, O(n))
+- [x] GF method call graph via `sb-pcl::safe-method-fast-function`
 - [x] Cross-package call analysis (:include-external-calls)
+- [x] Internal symbol indexing (:include-internal)
 - [x] Lambda lists / signatures
 - [x] Docstrings
 - [x] Source file locations
 - [x] Macro expansion tracking (expandsMacro)
 - [x] Special variable read/write tracking (readsVar, writesVar)
+- [x] Query: what-calls / who-calls-p
+- [x] Query: dead-exports (exported but never called)
+- [x] Query: undocumented-exports
+- [x] Query: call-chain (BFS path from A to B)
 
 ## Next
-
-### Query Helpers
-- [ ] "What calls X?" / "What does X call?" convenience wrappers
-- [ ] "Find dead exports" — exported but never called within the package
-- [ ] "Call chain from A to B" — path query using Ariadne traversal
-- [ ] "Undocumented exports" — symbols missing docstrings
 
 ### Diff / Change Detection
 - [ ] Snapshot comparison — what symbols/edges were added/removed between two builds
@@ -42,11 +42,14 @@
 - [ ] Pretty-printed query results for interactive use
 - [ ] Slime/Sly integration for "show me the graph around this symbol"
 
+### Additional Queries
+- [ ] Circular call detection
+- [ ] "Impact analysis" — what breaks if I change this function?
+- [ ] Complexity metrics (fan-in, fan-out per symbol)
+
 ## Design Decisions
 
-- **Forward call graph only**: `find-function-callees` gives us O(n) performance.
-  `who-calls` (reverse) is used only for macro/variable xrefs where the set is small.
-- **Exported symbols only**: Internal symbols are implementation details.
-  Could be added as an option later.
+- **Forward call graph only**: `find-function-callees` + `safe-method-fast-function` gives O(n) performance. No `who-calls` reverse scanning needed.
+- **String URIs**: `package:symbol` (exported) or `package::symbol` (internal). Readable, queryable via SPARQL.
 - **Rebuild-on-demand**: No hooks yet. Explicit `rebuild-graph` keeps things predictable.
-- **String URIs**: `package:symbol` format. Simple, readable, queryable via SPARQL.
+- **SBCL-specific**: Uses `sb-introspect` and `sb-pcl` internals. Not portable to other implementations.
