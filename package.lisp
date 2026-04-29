@@ -26,6 +26,9 @@
    #:fan-out
    ;; Incremental
    #:refresh-graph
+   ;; REPL
+   #:describe-symbol
+   #:summary
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+

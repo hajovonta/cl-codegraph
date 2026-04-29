@@ -227,3 +227,39 @@ showing what changed (:added N :removed M)."
                    (incf removed)))
                old-triples))
     (list :added added :removed removed)))
+
+;;; REPL integration
+
+(defun describe-symbol (graph uri)
+  "Return a formatted string describing a symbol in the graph."
+  (with-output-to-string (s)
+    (let ((type-triples (ariadne:get-triples graph :subject uri :predicate +type+))
+          (calls (what-calls graph uri))
+          (callers (who-calls-p graph uri))
+          (ll (ariadne:get-triples graph :subject uri :predicate +lambda-list+))
+          (doc (ariadne:get-triples graph :subject uri :predicate +docstring+)))
+      (format s "~A~%" uri)
+      (when type-triples
+        (format s "  type: ~A~%" (ariadne:triple-object (first type-triples))))
+      (when ll
+        (format s "  args: ~A~%" (ariadne:triple-object (first ll))))
+      (when doc
+        (format s "  doc:  ~A~%" (ariadne:triple-object (first doc))))
+      (when calls
+        (format s "  calls: ~{~A~^, ~}~%" calls))
+      (when callers
+        (format s "  called-by: ~{~A~^, ~}~%" callers)))))
+
+(defun summary (graph)
+  "Return a formatted overview of the graph."
+  (with-output-to-string (s)
+    (let ((types (make-hash-table :test 'equal))
+          (call-count (length (ariadne:get-triples graph :predicate +calls+))))
+      (dolist (tr (ariadne:get-triples graph :predicate +type+))
+        (incf (gethash (ariadne:triple-object tr) types 0)))
+      (format s "Graph: ~A triples~%~%" (ariadne:triple-count graph))
+      (format s "Symbols:~%")
+      (maphash (lambda (type count)
+                 (format s "  ~A: ~A~%" type count))
+               types)
+      (format s "~%call edges: ~A~%" call-count))))

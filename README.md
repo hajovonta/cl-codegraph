@@ -1,6 +1,6 @@
 # cl-codegraph
 
-Automatic Knowledge Graph of Common Lisp code via live image introspection.
+Automatic Knowledge Graph of Common Lisp code via live SBCL image introspection.
 
 Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols, class hierarchies, method specializations, call relationships, and metadata — all without parsing source code.
 
