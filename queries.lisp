@@ -103,3 +103,31 @@ edges with those predicates."
               (push (ariadne:triple-subject tr) next-frontier))))
         (setf frontier next-frontier)))
     sub))
+
+;;; Diff
+
+(defun triple-key (tr)
+  (list (ariadne:triple-subject tr) (ariadne:triple-predicate tr) (ariadne:triple-object tr)))
+
+(defun diff-graphs (old new)
+  "Compare OLD and NEW graphs. Returns plist with :added and :removed triple lists."
+  (let ((old-set (make-hash-table :test 'equal))
+        (new-set (make-hash-table :test 'equal))
+        (added '())
+        (removed '()))
+    (dolist (tr (ariadne:get-triples old))
+      (setf (gethash (triple-key tr) old-set) t))
+    (dolist (tr (ariadne:get-triples new))
+      (setf (gethash (triple-key tr) new-set) t)
+      (unless (gethash (triple-key tr) old-set)
+        (push tr added)))
+    (dolist (tr (ariadne:get-triples old))
+      (unless (gethash (triple-key tr) new-set)
+        (push tr removed)))
+    (list :added added :removed removed)))
+
+(defun diff-summary (old new)
+  "Return a plist with counts: :added N :removed M."
+  (let ((diff (diff-graphs old new)))
+    (list :added (length (getf diff :added))
+          :removed (length (getf diff :removed)))))

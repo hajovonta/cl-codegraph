@@ -10,4 +10,5 @@
                              (:file "suite-macro-var-deps")
                              (:file "suite-query-helpers")
                              (:file "suite-internal")
-                             (:file "suite-visualization")))))
+                             (:file "suite-visualization")
+                             (:file "suite-diff")))))

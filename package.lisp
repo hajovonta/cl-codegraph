@@ -13,6 +13,9 @@
    ;; Visualization
    #:export-dot
    #:neighborhood
+   ;; Diff
+   #:diff-graphs
+   #:diff-summary
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+
