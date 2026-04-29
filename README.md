@@ -79,6 +79,10 @@ Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols
 
 (cl-codegraph:diff-graphs *before* *after*)
 ;; => (:ADDED (triples...) :REMOVED (triples...))
+
+;; Or: rebuild in-place and get the diff in one step
+(cl-codegraph:refresh-graph *g* :my-package :include-internal t)
+;; => (:ADDED 3 :REMOVED 1)
 ```
 
 ## Graph Model

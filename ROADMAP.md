@@ -37,7 +37,8 @@
 - [ ] Track graph evolution over a session — what changed since last rebuild
 
 ### Incremental Updates
-- [ ] Selective rebuild (only re-index changed symbols)
+- [x] refresh-graph: rebuild in-place with change reporting (:added N :removed M)
+- [ ] Selective rebuild (only re-index changed symbols based on source timestamps)
 - [ ] Detect which symbols were recompiled and update edges
 
 ### Additional Queries
