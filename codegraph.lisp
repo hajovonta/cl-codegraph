@@ -251,3 +251,60 @@ For generic functions, supplements with who-calls on exported symbols only (fast
                 (dolist (f (ignore-errors (sb-introspect:find-function-callees fast)))
                   (push f fns))))))))
     fns))
+
+;;; Multi-package
+
+(defun build-multi-graph (package-designators &key graph-name include-internal)
+  "Build a unified graph spanning multiple packages. Cross-package calls between
+the listed packages are automatically captured."
+  (let* ((name (or graph-name (format nil "codegraph/multi")))
+         (g (ariadne:make-graph :name name))
+         (all-syms '())
+         (sym-set (make-hash-table :test 'eq)))
+    ;; Collect all symbols from all packages
+    (dolist (pd package-designators)
+      (let ((pkg (find-package pd)))
+        (when pkg
+          (if include-internal
+              (do-symbols (sym pkg)
+                (when (eq (symbol-package sym) pkg)
+                  (push sym all-syms)
+                  (setf (gethash sym sym-set) t)))
+              (do-external-symbols (sym pkg)
+                (push sym all-syms)
+                (setf (gethash sym sym-set) t))))))
+    ;; Index each package's symbols
+    (dolist (pd package-designators)
+      (let ((pkg (find-package pd)))
+        (when pkg
+          (let ((pkg-uri (format nil "pkg:~(~A~)" (package-name pkg))))
+            (dolist (sym all-syms)
+              (when (eq (symbol-package sym) pkg)
+                (let ((uri (symbol-uri sym))
+                      (kind (classify-symbol sym))
+                      (externalp (eq (nth-value 1 (find-symbol (symbol-name sym) pkg)) :external)))
+                  (ariadne:add-triple g uri +type+ (string-downcase (symbol-name kind)))
+                  (ariadne:add-triple g uri +in-package+ pkg-uri)
+                  (when externalp
+                    (ariadne:add-triple g pkg-uri +exports+ uri))
+                  (when (and include-internal (not externalp))
+                    (ariadne:add-triple g uri "cg:internal" "true"))
+                  (case kind
+                    (:class (index-class g sym uri))
+                    (:generic-function (index-generic g sym uri)))
+                  (index-metadata g sym uri kind)
+                  (index-macro-var-deps g sym uri kind all-syms))))))))
+    ;; Call graph across all symbols
+    (index-call-graph g all-syms (find-package (first package-designators)) nil)
+    g))
+
+(defun build-system-graph (system-designator &key include-internal)
+  "Build a graph for an ASDF system. Finds the primary package by system name."
+  (asdf:load-system system-designator)
+  (let* ((sys-name (string-downcase (string system-designator)))
+         (pkg (find-package (string-upcase sys-name))))
+    (if pkg
+        (build-graph (make-symbol (package-name pkg))
+                     :graph-name (format nil "codegraph/system/~A" sys-name)
+                     :include-internal include-internal)
+        (error "Could not find package for system ~A" system-designator))))

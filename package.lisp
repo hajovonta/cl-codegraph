@@ -16,6 +16,9 @@
    ;; Diff
    #:diff-graphs
    #:diff-summary
+   ;; Multi-package
+   #:build-multi-graph
+   #:build-system-graph
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+
