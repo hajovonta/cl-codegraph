@@ -34,6 +34,12 @@
 - [ ] Export to Graphviz via Ariadne's export-dot
 - [ ] Call graph subgraph extraction (neighborhood of a symbol)
 
+### Live Development Dashboard
+- [ ] Hook into SBCL definition hooks to auto-rebuild graph on code changes
+- [ ] Dedicated Emacs window showing relevant subgraphs (neighborhood of current function)
+- [ ] Auto-update visualization as the user navigates/edits code
+- [ ] Track graph evolution over a session — what changed since last rebuild
+
 ### Incremental Updates
 - [ ] Hook into SBCL definition hooks for live graph updates during development
 - [ ] Selective rebuild (only re-index changed symbols)
