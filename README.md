@@ -18,19 +18,57 @@ Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols
 ;; Include cross-package dependencies
 (defparameter *g* (cl-codegraph:build-graph :my-package :include-external-calls t))
 
-;; Query helpers
-(cl-codegraph:what-calls *g* "my-package:some-fn")       ;; what does it call?
-(cl-codegraph:who-calls-p *g* "my-package:some-fn")      ;; who calls it?
-(cl-codegraph:call-chain *g* "pkg:entry" "pkg:target")   ;; path from A to B
-(cl-codegraph:dead-exports *g*)                          ;; exported but never called
-(cl-codegraph:undocumented-exports *g*)                  ;; missing docstrings
+;; Multi-package: unified graph spanning several packages
+(defparameter *g* (cl-codegraph:build-multi-graph '(:pkg-a :pkg-b :pkg-c)))
 
-;; Rebuild after code changes
-(cl-codegraph:rebuild-graph *g* :my-package :include-internal t)
+;; ASDF system: graph the primary package of a system
+(defparameter *g* (cl-codegraph:build-system-graph :my-system))
+```
 
-;; Use SPARQL or Ariadne's query DSL directly
-(ariadne:query *g* '(select (?fn ?callee)
-                     (where (?fn "cg:calls" ?callee))))
+## Query Helpers
+
+```lisp
+;; What does a function call?
+(cl-codegraph:what-calls *g* "my-package:some-fn")
+
+;; Who calls a function?
+(cl-codegraph:who-calls-p *g* "my-package:some-fn")
+
+;; Call path from A to B (BFS)
+(cl-codegraph:call-chain *g* "pkg:entry" "pkg:target")
+
+;; Exported functions that nothing in the package calls
+(cl-codegraph:dead-exports *g*)
+
+;; Symbols missing docstrings
+(cl-codegraph:undocumented-exports *g*)
+```
+
+## Visualization
+
+```lisp
+;; Graphviz DOT output (pipe to dot -Tpng)
+(cl-codegraph:export-dot *g* :predicates '("cg:calls"))
+
+;; Subgraph around a symbol (2 hops)
+(cl-codegraph:export-dot
+  (cl-codegraph:neighborhood *g* "ariadne:query" :depth 2)
+  :predicates '("cg:calls"))
+```
+
+## Change Detection
+
+```lisp
+;; Snapshot before/after code changes
+(defparameter *before* (cl-codegraph:build-graph :pkg :include-internal t))
+;; ... edit and recompile ...
+(defparameter *after* (cl-codegraph:build-graph :pkg :include-internal t))
+
+(cl-codegraph:diff-summary *before* *after*)
+;; => (:ADDED 5 :REMOVED 2)
+
+(cl-codegraph:diff-graphs *before* *after*)
+;; => (:ADDED (triples...) :REMOVED (triples...))
 ```
 
 ## Graph Model

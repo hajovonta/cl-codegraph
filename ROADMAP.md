@@ -19,20 +19,13 @@
 - [x] Query: dead-exports (exported but never called)
 - [x] Query: undocumented-exports
 - [x] Query: call-chain (BFS path from A to B)
+- [x] Visualization: export-dot with predicate filtering
+- [x] Visualization: neighborhood subgraph extraction
+- [x] Diff: compare graph snapshots (added/removed triples)
+- [x] Multi-package: build-multi-graph (unified graph across packages)
+- [x] Multi-package: build-system-graph (ASDF system)
 
 ## Next
-
-### Diff / Change Detection
-- [ ] Snapshot comparison — what symbols/edges were added/removed between two builds
-- [ ] Integration with git — rebuild after commit, diff against previous
-
-### Multi-Package Graphs
-- [ ] Build a unified graph spanning multiple packages (e.g., an entire ASDF system)
-- [ ] ASDF system dependency edges (system → system)
-
-### Visualization
-- [ ] Export to Graphviz via Ariadne's export-dot
-- [ ] Call graph subgraph extraction (neighborhood of a symbol)
 
 ### Live Development Dashboard
 - [ ] Hook into SBCL definition hooks to auto-rebuild graph on code changes
@@ -41,17 +34,18 @@
 - [ ] Track graph evolution over a session — what changed since last rebuild
 
 ### Incremental Updates
-- [ ] Hook into SBCL definition hooks for live graph updates during development
 - [ ] Selective rebuild (only re-index changed symbols)
-
-### REPL Integration
-- [ ] Pretty-printed query results for interactive use
-- [ ] Slime/Sly integration for "show me the graph around this symbol"
+- [ ] Detect which symbols were recompiled and update edges
 
 ### Additional Queries
 - [ ] Circular call detection
 - [ ] "Impact analysis" — what breaks if I change this function?
 - [ ] Complexity metrics (fan-in, fan-out per symbol)
+- [ ] "Unused imports" — packages in use-list but no calls to their symbols
+
+### REPL Integration
+- [ ] Pretty-printed query results for interactive use
+- [ ] Slime/Sly integration for "show me the graph around this symbol"
 
 ## Design Decisions
 
