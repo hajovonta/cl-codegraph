@@ -195,30 +195,30 @@
   "Get the symbol name of a function object, or nil."
   (nth-value 2 (function-lambda-expression fn)))
 
-(defun index-call-graph (graph exported-symbols pkg include-external-calls)
-  "Add cg:calls and cg:calledBy triples using find-function-callees (forward index)."
+(defun index-call-graph (graph all-symbols pkg include-external-calls)
+  "Add cg:calls and cg:calledBy triples using find-function-callees.
+For generic functions, supplements with who-calls on exported symbols only (fast)."
   (let ((sym-set (make-hash-table :test 'eq))
         (pkg-uri (format nil "pkg:~(~A~)" (package-name pkg)))
-        (dep-packages (make-hash-table :test 'equal)))
-    (dolist (sym exported-symbols)
+        (dep-packages (make-hash-table :test 'equal))
+        (exported '()))
+    (dolist (sym all-symbols)
       (setf (gethash sym sym-set) t))
-    ;; For each exported callable symbol, find what it calls
-    (dolist (caller exported-symbols)
+    (do-external-symbols (sym pkg)
+      (push sym exported))
+    ;; Forward pass: find-function-callees
+    (dolist (caller all-symbols)
       (when (fboundp caller)
-        (let ((caller-uri (symbol-uri caller))
-              (callees (ignore-errors
-                        (sb-introspect:find-function-callees (fdefinition caller)))))
-          (dolist (callee-fn callees)
+        (let ((caller-uri (symbol-uri caller)))
+          (dolist (callee-fn (callees-of caller))
             (let ((callee-name (function-name-of callee-fn)))
               (when (and (symbolp callee-name) (symbol-package callee-name))
                 (cond
-                  ;; Intra-package call
                   ((gethash callee-name sym-set)
                    (unless (eq callee-name caller)
                      (let ((callee-uri (symbol-uri callee-name)))
                        (ariadne:add-triple graph caller-uri +calls+ callee-uri)
                        (ariadne:add-triple graph callee-uri +called-by+ caller-uri))))
-                  ;; Cross-package call
                   ((and include-external-calls
                         (not (eq (symbol-package callee-name) (find-package :cl))))
                    (let ((callee-uri (symbol-uri callee-name))
@@ -230,9 +230,24 @@
                                          (string-downcase (symbol-name (classify-symbol callee-name))))
                      (ariadne:add-triple graph callee-uri +external+ "true")
                      (setf (gethash ext-pkg-uri dep-packages) t))))))))))
-    ;; Record package-level dependencies
     (when include-external-calls
       (maphash (lambda (ext-pkg-uri _)
                  (declare (ignore _))
                  (ariadne:add-triple graph pkg-uri +depends-on+ ext-pkg-uri))
                dep-packages))))
+
+(defun callees-of (sym)
+  "Return all function objects called by SYM. For GFs, walks method fast-functions."
+  (let ((fns '())
+        (def (fdefinition sym)))
+    (dolist (f (ignore-errors (sb-introspect:find-function-callees def)))
+      (push f fns))
+    (when (typep def 'generic-function)
+      (let ((fast-fn-accessor (find-symbol "SAFE-METHOD-FAST-FUNCTION" :sb-pcl)))
+        (when (and fast-fn-accessor (fboundp fast-fn-accessor))
+          (dolist (method (sb-mop:generic-function-methods def))
+            (let ((fast (ignore-errors (funcall fast-fn-accessor method))))
+              (when fast
+                (dolist (f (ignore-errors (sb-introspect:find-function-callees fast)))
+                  (push f fns))))))))
+    fns))
