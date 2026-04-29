@@ -19,6 +19,11 @@
    ;; Multi-package
    #:build-multi-graph
    #:build-system-graph
+   ;; Advanced queries
+   #:find-cycles
+   #:impact-of
+   #:fan-in
+   #:fan-out
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+

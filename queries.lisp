@@ -131,3 +131,68 @@ edges with those predicates."
   (let ((diff (diff-graphs old new)))
     (list :added (length (getf diff :added))
           :removed (length (getf diff :removed)))))
+
+;;; Advanced queries
+
+(defun fan-out (graph uri)
+  "Number of functions URI calls."
+  (length (ariadne:get-triples graph :subject uri :predicate +calls+)))
+
+(defun fan-in (graph uri)
+  "Number of functions that call URI."
+  (length (ariadne:get-triples graph :subject uri :predicate +called-by+)))
+
+(defun impact-of (graph uri)
+  "Return all symbols that transitively depend on URI (callers, callers of callers, etc.)."
+  (let ((visited (make-hash-table :test 'equal))
+        (result '())
+        (queue '()))
+    (setf (gethash uri visited) t)
+    ;; Seed with direct callers
+    (dolist (tr (ariadne:get-triples graph :subject uri :predicate +called-by+))
+      (let ((caller (ariadne:triple-object tr)))
+        (unless (gethash caller visited)
+          (setf (gethash caller visited) t)
+          (push caller queue)
+          (push caller result))))
+    ;; BFS through callers
+    (loop while queue do
+      (let ((current (pop queue)))
+        (dolist (tr (ariadne:get-triples graph :subject current :predicate +called-by+))
+          (let ((caller (ariadne:triple-object tr)))
+            (unless (gethash caller visited)
+              (setf (gethash caller visited) t)
+              (push caller queue)
+              (push caller result))))))
+    result))
+
+(defun find-cycles (graph)
+  "Find all cycles in the call graph. Returns a list of cycles,
+each cycle being a list of URIs forming the loop."
+  (let ((nodes '())
+        (visited (make-hash-table :test 'equal))
+        (on-stack (make-hash-table :test 'equal))
+        (cycles '()))
+    ;; Collect all callable nodes
+    (dolist (tr (ariadne:get-triples graph :predicate +calls+))
+      (pushnew (ariadne:triple-subject tr) nodes :test #'string=)
+      (pushnew (ariadne:triple-object tr) nodes :test #'string=))
+    ;; DFS for back edges
+    (labels ((dfs (node path)
+               (setf (gethash node visited) t)
+               (setf (gethash node on-stack) t)
+               (dolist (tr (ariadne:get-triples graph :subject node :predicate +calls+))
+                 (let ((next (ariadne:triple-object tr)))
+                   (cond
+                     ((gethash next on-stack)
+                      ;; Found a cycle — extract it
+                      (let ((cycle-start (position next path :test #'string=)))
+                        (when cycle-start
+                          (push (append (subseq path cycle-start) (list next)) cycles))))
+                     ((not (gethash next visited))
+                      (dfs next (append path (list next)))))))
+               (setf (gethash node on-stack) nil)))
+      (dolist (node nodes)
+        (unless (gethash node visited)
+          (dfs node (list node)))))
+    cycles))
