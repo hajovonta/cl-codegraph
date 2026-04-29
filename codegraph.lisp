@@ -46,55 +46,67 @@
 ;;; Node naming
 
 (defun symbol-uri (sym)
-  "Return a string URI for SYM."
-  (format nil "~(~A:~A~)" (package-name (symbol-package sym)) (symbol-name sym)))
+  "Return a string URI for SYM. Uses :: for internal symbols, : for external."
+  (let* ((pkg (symbol-package sym))
+         (sep (if (eq (nth-value 1 (find-symbol (symbol-name sym) pkg)) :external)
+                  ":" "::")))
+    (format nil "~(~A~A~A~)" (package-name pkg) sep (symbol-name sym))))
 
 ;;; Graph building
 
-(defun build-graph (package-designator &key (graph-name nil) (include-external-calls nil))
-  "Build and return an Ariadne graph representing the code structure of PACKAGE-DESIGNATOR.
-When INCLUDE-EXTERNAL-CALLS is true, also record calls to functions in other packages."
+(defun build-graph (package-designator &key graph-name include-external-calls include-internal)
+  "Build and return an Ariadne graph representing the code structure of PACKAGE-DESIGNATOR."
   (let ((pkg (find-package package-designator)))
     (when (null pkg)
       (error "Package ~A not found" package-designator))
     (let* ((name (or graph-name (format nil "codegraph/~(~A~)" (package-name pkg))))
            (g (ariadne:make-graph :name name)))
-      (index-package g pkg include-external-calls)
+      (index-package g pkg include-external-calls include-internal)
       g)))
 
-(defun rebuild-graph (graph package-designator &key (include-external-calls nil))
+(defun rebuild-graph (graph package-designator &key include-external-calls include-internal)
   "Clear GRAPH and rebuild it from PACKAGE-DESIGNATOR."
   (let ((pkg (find-package package-designator)))
     (when (null pkg)
       (error "Package ~A not found" package-designator))
     (ariadne:clear-graph graph)
-    (index-package graph pkg include-external-calls)
+    (index-package graph pkg include-external-calls include-internal)
     graph))
 
 ;;; Internal indexing
 
-(defun index-package (graph pkg include-external-calls)
-  "Walk all exported symbols of PKG and add triples to GRAPH."
+(defun index-package (graph pkg include-external-calls include-internal)
+  "Walk symbols of PKG and add triples to GRAPH."
   (let ((pkg-uri (format nil "pkg:~(~A~)" (package-name pkg)))
-        (exported-symbols '()))
+        (exported-symbols '())
+        (all-symbols '()))
     (do-external-symbols (sym pkg)
       (push sym exported-symbols))
+    (if include-internal
+        (do-symbols (sym pkg)
+          (when (eq (symbol-package sym) pkg)
+            (push sym all-symbols)))
+        (setf all-symbols exported-symbols))
     ;; Index each symbol
-    (dolist (sym exported-symbols)
+    (dolist (sym all-symbols)
       (let ((uri (symbol-uri sym))
-            (kind (classify-symbol sym)))
+            (kind (classify-symbol sym))
+            (externalp (member sym exported-symbols)))
         (ariadne:add-triple graph uri +type+ (string-downcase (symbol-name kind)))
         (ariadne:add-triple graph uri +in-package+ pkg-uri)
-        (ariadne:add-triple graph pkg-uri +exports+ uri)
+        (when externalp
+          (ariadne:add-triple graph pkg-uri +exports+ uri))
+        (when (and include-internal (not externalp))
+          (ariadne:add-triple graph uri "cg:internal" "true"))
         (case kind
           (:class (index-class graph sym uri))
           (:generic-function (index-generic graph sym uri)))
-        ;; Metadata for all symbols
+        ;; Metadata
         (index-metadata graph sym uri kind)
         ;; Macro/variable dependencies
-        (index-macro-var-deps graph sym uri kind exported-symbols)))
+        (index-macro-var-deps graph sym uri kind all-symbols)))
     ;; Call relationships
-    (index-call-graph graph exported-symbols pkg include-external-calls)))
+    (index-call-graph graph all-symbols pkg include-external-calls)))
 
 (defun index-class (graph sym uri)
   "Add class hierarchy and slot triples for class named by SYM."

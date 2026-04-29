@@ -8,4 +8,5 @@
                              (:file "suite-cross-package")
                              (:file "suite-metadata")
                              (:file "suite-macro-var-deps")
-                             (:file "suite-query-helpers")))))
+                             (:file "suite-query-helpers")
+                             (:file "suite-internal")))))
