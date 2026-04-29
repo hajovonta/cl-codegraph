@@ -15,4 +15,10 @@
    #:+exports+
    #:+in-package+
    #:+external+
-   #:+depends-on+))
+   #:+depends-on+
+   #:+lambda-list+
+   #:+docstring+
+   #:+source-file+
+   #:+expands-macro+
+   #:+reads-var+
+   #:+writes-var+))

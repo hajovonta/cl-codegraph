@@ -5,4 +5,6 @@
                 :components ((:file "package")
                              (:file "suite-core")
                              (:file "suite-calls")
-                             (:file "suite-cross-package")))))
+                             (:file "suite-cross-package")
+                             (:file "suite-metadata")
+                             (:file "suite-macro-var-deps")))))

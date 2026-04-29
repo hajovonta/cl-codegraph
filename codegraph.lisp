@@ -21,6 +21,12 @@
 (define-constant +in-package+ "cg:inPackage")
 (define-constant +external+ "cg:external")
 (define-constant +depends-on+ "cg:dependsOn")
+(define-constant +lambda-list+ "cg:lambdaList")
+(define-constant +docstring+ "cg:docstring")
+(define-constant +source-file+ "cg:sourceFile")
+(define-constant +expands-macro+ "cg:expandsMacro")
+(define-constant +reads-var+ "cg:readsVar")
+(define-constant +writes-var+ "cg:writesVar")
 
 ;;; Symbol classification
 
@@ -82,7 +88,11 @@ When INCLUDE-EXTERNAL-CALLS is true, also record calls to functions in other pac
         (ariadne:add-triple graph pkg-uri +exports+ uri)
         (case kind
           (:class (index-class graph sym uri))
-          (:generic-function (index-generic graph sym uri)))))
+          (:generic-function (index-generic graph sym uri)))
+        ;; Metadata for all symbols
+        (index-metadata graph sym uri kind)
+        ;; Macro/variable dependencies
+        (index-macro-var-deps graph sym uri kind exported-symbols)))
     ;; Call relationships
     (index-call-graph graph exported-symbols pkg include-external-calls)))
 
@@ -117,6 +127,57 @@ When INCLUDE-EXTERNAL-CALLS is true, also record calls to functions in other pac
               (unless (eq spec-name t)
                 (ariadne:add-triple graph method-uri +specializes-on+
                                     (symbol-uri spec-name))))))))))
+
+(defun index-metadata (graph sym uri kind)
+  "Add lambda-list, docstring, and source-file triples for SYM."
+  ;; Lambda list (for functions, generics, macros)
+  (when (member kind '(:function :generic-function :macro))
+    (let ((ll (ignore-errors (sb-introspect:function-lambda-list sym))))
+      (when ll
+        (ariadne:add-triple graph uri +lambda-list+
+                            (string-upcase (princ-to-string ll))))))
+  ;; Docstring
+  (let ((doc (cond
+               ((member kind '(:function :generic-function :macro))
+                (documentation sym 'function))
+               ((eq kind :class)
+                (documentation (find-class sym) t))
+               ((member kind '(:special-variable :constant))
+                (documentation sym 'variable)))))
+    (when doc
+      (ariadne:add-triple graph uri +docstring+ doc)))
+  ;; Source location
+  (let* ((type (case kind
+                 ((:function :generic-function) :function)
+                 (:macro :function)
+                 (:class :class)
+                 (:special-variable :variable)
+                 (:constant :variable)))
+         (sources (when type
+                    (ignore-errors
+                     (sb-introspect:find-definition-sources-by-name sym type)))))
+    (when (and sources (sb-introspect:definition-source-pathname (first sources)))
+      (ariadne:add-triple graph uri +source-file+
+                          (namestring (sb-introspect:definition-source-pathname (first sources)))))))
+
+(defun index-macro-var-deps (graph sym uri kind exported-symbols)
+  "Add macro-expansion and variable read/write dependency triples."
+  ;; who-macroexpands: for each exported macro, find which exported fns expand it
+  (when (eq kind :macro)
+    (dolist (entry (sb-introspect:who-macroexpands sym))
+      (let ((user (car entry)))
+        (when (and (symbolp user) (member user exported-symbols))
+          (ariadne:add-triple graph (symbol-uri user) +expands-macro+ uri)))))
+  ;; who-references / who-sets: for exported specials, find readers/writers
+  (when (member kind '(:special-variable))
+    (dolist (entry (sb-introspect:who-references sym))
+      (let ((reader (car entry)))
+        (when (and (symbolp reader) (member reader exported-symbols))
+          (ariadne:add-triple graph (symbol-uri reader) +reads-var+ uri))))
+    (dolist (entry (sb-introspect:who-sets sym))
+      (let ((writer (car entry)))
+        (when (and (symbolp writer) (member writer exported-symbols))
+          (ariadne:add-triple graph (symbol-uri writer) +writes-var+ uri))))))
 
 (defun function-name-of (fn)
   "Get the symbol name of a function object, or nil."
