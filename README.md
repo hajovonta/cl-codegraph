@@ -42,6 +42,16 @@ Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols
 
 ;; Symbols missing docstrings
 (cl-codegraph:undocumented-exports *g*)
+
+;; Find circular call dependencies
+(cl-codegraph:find-cycles *g*)
+
+;; What breaks if I change this function? (transitive callers)
+(cl-codegraph:impact-of *g* "pkg:some-fn")
+
+;; Connectivity metrics
+(cl-codegraph:fan-out *g* "pkg:some-fn")  ;; how many functions it calls
+(cl-codegraph:fan-in *g* "pkg:some-fn")   ;; how many functions call it
 ```
 
 ## Visualization

@@ -19,6 +19,9 @@
 - [x] Query: dead-exports (exported but never called)
 - [x] Query: undocumented-exports
 - [x] Query: call-chain (BFS path from A to B)
+- [x] Query: find-cycles (circular call detection)
+- [x] Query: impact-of (transitive callers — what breaks if X changes?)
+- [x] Query: fan-in / fan-out (connectivity metrics)
 - [x] Visualization: export-dot with predicate filtering
 - [x] Visualization: neighborhood subgraph extraction
 - [x] Diff: compare graph snapshots (added/removed triples)
@@ -38,9 +41,6 @@
 - [ ] Detect which symbols were recompiled and update edges
 
 ### Additional Queries
-- [ ] Circular call detection
-- [ ] "Impact analysis" — what breaks if I change this function?
-- [ ] Complexity metrics (fan-in, fan-out per symbol)
 - [ ] "Unused imports" — packages in use-list but no calls to their symbols
 
 ### REPL Integration
