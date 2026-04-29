@@ -3,4 +3,5 @@
   :serial t
   :components ((:module "tests"
                 :components ((:file "package")
-                             (:file "suite-core")))))
+                             (:file "suite-core")
+                             (:file "suite-calls")))))
