@@ -54,6 +54,32 @@ Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols
 (cl-codegraph:fan-in *g* "pkg:some-fn")   ;; how many functions call it
 ```
 
+## REPL Integration
+
+```lisp
+;; Formatted overview of a symbol
+(format t "~A" (cl-codegraph:describe-symbol *g* "ariadne:sparql"))
+;; ariadne:sparql
+;;   type: function
+;;   args: (G QUERY-STRING)
+;;   doc:  Parse and execute a SPARQL query string against graph G.
+;;   calls: ariadne:query, ariadne::parse-sparql
+
+;; Graph overview
+(format t "~A" (cl-codegraph:summary *g*))
+;; Graph: 6758 triples
+;;
+;; Symbols:
+;;   function: 245
+;;   generic-function: 3
+;; ...
+;; call edges: 744
+
+;; Rebuild in-place and see what changed
+(cl-codegraph:refresh-graph *g* :my-package :include-internal t)
+;; => (:ADDED 3 :REMOVED 1)
+```
+
 ## Visualization
 
 ```lisp
@@ -69,7 +95,7 @@ Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols
 ## Change Detection
 
 ```lisp
-;; Snapshot before/after code changes
+;; Compare two separate graph snapshots
 (defparameter *before* (cl-codegraph:build-graph :pkg :include-internal t))
 ;; ... edit and recompile ...
 (defparameter *after* (cl-codegraph:build-graph :pkg :include-internal t))
@@ -79,10 +105,6 @@ Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols
 
 (cl-codegraph:diff-graphs *before* *after*)
 ;; => (:ADDED (triples...) :REMOVED (triples...))
-
-;; Or: rebuild in-place and get the diff in one step
-(cl-codegraph:refresh-graph *g* :my-package :include-internal t)
-;; => (:ADDED 3 :REMOVED 1)
 ```
 
 ## Graph Model

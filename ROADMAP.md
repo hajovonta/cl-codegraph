@@ -28,6 +28,9 @@
 - [x] Multi-package: build-multi-graph (unified graph across packages)
 - [x] Multi-package: build-system-graph (ASDF system)
 
+- [x] REPL: describe-symbol (formatted symbol overview)
+- [x] REPL: summary (graph overview with counts)
+
 ## Next
 
 ### Live Development Dashboard
@@ -45,7 +48,6 @@
 - [ ] "Unused imports" — packages in use-list but no calls to their symbols
 
 ### REPL Integration
-- [ ] Pretty-printed query results for interactive use
 - [ ] Slime/Sly integration for "show me the graph around this symbol"
 
 ## Design Decisions
