@@ -13,4 +13,6 @@
    #:+method-of+
    #:+specializes-on+
    #:+exports+
-   #:+in-package+))
+   #:+in-package+
+   #:+external+
+   #:+depends-on+))

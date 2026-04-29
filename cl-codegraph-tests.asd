@@ -4,4 +4,5 @@
   :components ((:module "tests"
                 :components ((:file "package")
                              (:file "suite-core")
-                             (:file "suite-calls")))))
+                             (:file "suite-calls")
+                             (:file "suite-cross-package")))))
