@@ -10,6 +10,9 @@
    #:dead-exports
    #:undocumented-exports
    #:call-chain
+   ;; Visualization
+   #:export-dot
+   #:neighborhood
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+

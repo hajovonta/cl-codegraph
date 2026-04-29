@@ -53,3 +53,53 @@
             (unless (gethash next visited)
               (setf (gethash next visited) t)
               (push (append path (list next)) queue))))))))
+
+;;; Visualization
+
+(defun export-dot (graph &key predicates)
+  "Export GRAPH as a Graphviz DOT string. If PREDICATES is given, only include
+edges with those predicates."
+  (with-output-to-string (s)
+    (format s "digraph codegraph {~%")
+    (format s "  rankdir=LR;~%")
+    (format s "  node [shape=box, fontsize=10];~%")
+    (let ((triples (if predicates
+                       (loop for p in predicates
+                             nconc (ariadne:get-triples graph :predicate p))
+                       (ariadne:get-triples graph))))
+      (dolist (tr triples)
+        (let ((subj (ariadne:triple-subject tr))
+              (pred (ariadne:triple-predicate tr))
+              (obj (ariadne:triple-object tr)))
+          (format s "  ~S -> ~S [label=~S];~%" subj obj pred))))
+    (format s "}~%")))
+
+(defun neighborhood (graph uri &key (depth 1))
+  "Extract a subgraph containing all triples within DEPTH hops of URI."
+  (let ((sub (ariadne:make-graph :name (format nil "neighborhood/~A" uri)))
+        (visited (make-hash-table :test 'equal))
+        (frontier (list uri)))
+    (setf (gethash uri visited) t)
+    (dotimes (i (1+ depth))
+      (let ((next-frontier '()))
+        (dolist (node frontier)
+          ;; Triples where node is subject
+          (dolist (tr (ariadne:get-triples graph :subject node))
+            (ariadne:add-triple sub (ariadne:triple-subject tr)
+                                (ariadne:triple-predicate tr)
+                                (ariadne:triple-object tr))
+            (when (and (< i depth)
+                       (not (gethash (ariadne:triple-object tr) visited)))
+              (setf (gethash (ariadne:triple-object tr) visited) t)
+              (push (ariadne:triple-object tr) next-frontier)))
+          ;; Triples where node is object
+          (dolist (tr (ariadne:get-triples graph :object node))
+            (ariadne:add-triple sub (ariadne:triple-subject tr)
+                                (ariadne:triple-predicate tr)
+                                (ariadne:triple-object tr))
+            (when (and (< i depth)
+                       (not (gethash (ariadne:triple-subject tr) visited)))
+              (setf (gethash (ariadne:triple-subject tr) visited) t)
+              (push (ariadne:triple-subject tr) next-frontier))))
+        (setf frontier next-frontier)))
+    sub))
