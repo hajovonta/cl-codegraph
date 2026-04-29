@@ -13,4 +13,5 @@
                              (:file "suite-visualization")
                              (:file "suite-diff")
                              (:file "suite-multi-package")
-                             (:file "suite-advanced-queries")))))
+                             (:file "suite-advanced-queries")
+                             (:file "suite-incremental")))))

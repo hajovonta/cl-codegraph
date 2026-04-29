@@ -24,6 +24,8 @@
    #:impact-of
    #:fan-in
    #:fan-out
+   ;; Incremental
+   #:refresh-graph
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+

@@ -196,3 +196,34 @@ each cycle being a list of URIs forming the loop."
         (unless (gethash node visited)
           (dfs node (list node)))))
     cycles))
+
+;;; Incremental rebuild
+
+(defun refresh-graph (graph package-designator &key include-internal include-external-calls)
+  "Rebuild GRAPH from PACKAGE-DESIGNATOR and return a diff-summary plist
+showing what changed (:added N :removed M)."
+  (let* ((old-triples (make-hash-table :test 'equal))
+         (added 0)
+         (removed 0))
+    ;; Snapshot old state
+    (dolist (tr (ariadne:get-triples graph))
+      (setf (gethash (triple-key tr) old-triples) t))
+    ;; Rebuild
+    (let ((pkg (find-package package-designator)))
+      (when (null pkg)
+        (error "Package ~A not found" package-designator))
+      (ariadne:clear-graph graph)
+      (index-package graph pkg include-external-calls include-internal))
+    ;; Diff
+    (let ((new-triples (make-hash-table :test 'equal)))
+      (dolist (tr (ariadne:get-triples graph))
+        (let ((key (triple-key tr)))
+          (setf (gethash key new-triples) t)
+          (unless (gethash key old-triples)
+            (incf added))))
+      (maphash (lambda (key _)
+                 (declare (ignore _))
+                 (unless (gethash key new-triples)
+                   (incf removed)))
+               old-triples))
+    (list :added added :removed removed)))
