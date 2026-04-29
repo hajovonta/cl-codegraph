@@ -4,6 +4,12 @@
    ;; Core API
    #:build-graph
    #:rebuild-graph
+   ;; Query helpers
+   #:what-calls
+   #:who-calls-p
+   #:dead-exports
+   #:undocumented-exports
+   #:call-chain
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+
