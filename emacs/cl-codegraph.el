@@ -135,7 +135,10 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
 (defun cl-codegraph--jump-to-definition (sym)
   "Jump to SYM's definition in the source window (not the codegraph window).
 Positions cursor on the symbol name."
-  (let* ((name (upcase (cl-codegraph--ensure-double-colon sym)))
+  (let* ((jump-sym (if (string-match "/method/" sym)
+                       (substring sym 0 (string-match "/method/" sym))
+                     sym))
+         (name (upcase (cl-codegraph--ensure-double-colon jump-sym)))
          (source-window (cl-codegraph--find-source-window)))
     (when source-window
       (with-selected-window source-window
@@ -143,7 +146,7 @@ Positions cursor on the symbol name."
                (slime-edit-definition name))
               ((fboundp 'sly-edit-definition)
                (sly-edit-definition name)))
-        (cl-codegraph--position-on-symbol sym)))))
+        (cl-codegraph--position-on-symbol jump-sym)))))
 
 (defun cl-codegraph--ensure-double-colon (sym)
   "Ensure SYM uses :: (works for both exported and internal in Slime)."
