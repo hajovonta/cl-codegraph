@@ -89,7 +89,9 @@ Returns the graph."
 (defun ensure-monitor (package-designator)
   "Monitor PACKAGE-DESIGNATOR if not already monitored. Returns the graph."
   (let ((pkg (find-package package-designator)))
-    (unless (and pkg (gethash pkg *monitors*))
+    (unless pkg
+      (return-from ensure-monitor nil))
+    (unless (gethash pkg *monitors*)
       (monitor package-designator :include-internal t)))
   (graph package-designator))
 
