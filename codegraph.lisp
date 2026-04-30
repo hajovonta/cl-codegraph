@@ -193,7 +193,8 @@
 
 (defun function-name-of (fn)
   "Get the symbol name of a function object, or nil."
-  (nth-value 2 (function-lambda-expression fn)))
+  (when (functionp fn)
+    (nth-value 2 (function-lambda-expression fn))))
 
 (defun index-call-graph (graph all-symbols pkg include-external-calls)
   "Add cg:calls and cg:calledBy triples using find-function-callees.
