@@ -236,7 +236,9 @@ Positions cursor on the symbol name."
          (file (buffer-file-name))
          (line (line-number-at-pos))
          (col (current-column))
-         ;; Try graph first, fall back to local-context
+         (bare-name (if (string-match ".*::?\\(.+\\)" sym)
+                        (match-string 1 sym)
+                      sym))
          (form `(let ((result (cl-codegraph:describe-symbol-live
                                ,(intern (concat ":" pkg))
                                ,sym)))
@@ -244,14 +246,13 @@ Positions cursor on the symbol name."
                            (search "type:" result)
                            (not (search "type: other" result)))
                       result
-                      ;; Fall back to local context
                       (let ((source ,(when file
                                        `(with-open-file (s ,file)
                                           (let ((buf (make-string (file-length s))))
                                             (read-sequence buf s)
                                             buf)))))
                         (if source
-                            (let ((ctx (cl-codegraph:local-context source ,line ,col ,sym)))
+                            (let ((ctx (cl-codegraph:local-context source ,line ,col ,bare-name)))
                               (if ctx
                                   (format nil "~A~%  ~A in: ~A~@[~%  value-form: ~A~]~%"
                                           ,sym
