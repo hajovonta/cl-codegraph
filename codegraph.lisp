@@ -242,7 +242,19 @@ For generic functions, supplements with who-calls on exported symbols only (fast
       (maphash (lambda (ext-pkg-uri _)
                  (declare (ignore _))
                  (ariadne:add-triple graph pkg-uri +depends-on+ ext-pkg-uri))
-               dep-packages))))
+               dep-packages))
+    ;; Per-method call edges for GFs
+    (dolist (caller all-symbols)
+      (when (and (fboundp caller) (typep (fdefinition caller) 'generic-function))
+        (dolist (entry (method-callees-alist caller))
+          (let ((method-uri (car entry)))
+            (dolist (callee-fn (cdr entry))
+              (let ((callee-name (function-name-of callee-fn)))
+                (when (and (symbolp callee-name)
+                           (symbol-package callee-name)
+                           (gethash callee-name sym-set))
+                  (ariadne:add-triple graph method-uri +calls+
+                                      (symbol-uri callee-name)))))))))))
 
 (defun callees-of (sym)
   "Return all function objects called by SYM. For GFs, walks method fast-functions."
@@ -259,6 +271,30 @@ For generic functions, supplements with who-calls on exported symbols only (fast
                 (dolist (f (ignore-errors (sb-introspect:find-function-callees fast)))
                   (push f fns))))))))
     fns))
+
+(defun method-callees-alist (sym)
+  "For a GF SYM, return alist of (method-uri . (callee-fn ...)) per method.
+Returns nil for non-GFs."
+  (let ((def (fdefinition sym)))
+    (when (typep def 'generic-function)
+      (let ((fast-fn-accessor (find-symbol "SAFE-METHOD-FAST-FUNCTION" :sb-pcl))
+            (result '()))
+        (when (and fast-fn-accessor (fboundp fast-fn-accessor))
+          (dolist (method (sb-mop:generic-function-methods def))
+            (let* ((specializers (sb-mop:method-specializers method))
+                   (method-uri (format nil "~A/method~{/~(~A~)~}"
+                                       (symbol-uri sym)
+                                       (mapcar (lambda (s)
+                                                 (if (typep s 'sb-mop:eql-specializer)
+                                                     (format nil "eql-~A" (sb-mop:eql-specializer-object s))
+                                                     (symbol-name (class-name s))))
+                                               specializers)))
+                   (fast (ignore-errors (funcall fast-fn-accessor method)))
+                   (callees (when fast
+                              (ignore-errors (sb-introspect:find-function-callees fast)))))
+              (when callees
+                (push (cons method-uri callees) result)))))
+        result))))
 
 ;;; Multi-package
 
