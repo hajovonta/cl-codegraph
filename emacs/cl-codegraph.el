@@ -138,13 +138,34 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
     (cl-codegraph--jump-to-definition sym)))
 
 (defun cl-codegraph--jump-to-definition (sym)
-  "Jump to SYM's definition in the source buffer using Slime/Sly.
-SYM should be fully qualified (e.g. \"cl-dtn::compute-block-crc\")."
-  (let ((name (upcase sym)))
-    (cond ((fboundp 'slime-edit-definition)
-           (slime-edit-definition name))
-          ((fboundp 'sly-edit-definition)
-           (sly-edit-definition name)))))
+  "Jump to SYM's definition in the source window (not the codegraph window).
+Positions cursor on the symbol name."
+  (let ((name (upcase sym))
+        (source-window (cl-codegraph--find-source-window)))
+    (when source-window
+      (with-selected-window source-window
+        (cond ((fboundp 'slime-edit-definition)
+               (slime-edit-definition name))
+              ((fboundp 'sly-edit-definition)
+               (sly-edit-definition name)))
+        (cl-codegraph--position-on-symbol sym)))))
+
+(defun cl-codegraph--find-source-window ()
+  "Find a window displaying a Lisp source file (not *codegraph*)."
+  (let ((cg-buf (get-buffer cl-codegraph-buffer-name)))
+    (cl-loop for win in (window-list)
+             unless (eq (window-buffer win) cg-buf)
+             when (with-current-buffer (window-buffer win)
+                    (derived-mode-p 'lisp-mode 'common-lisp-mode))
+             return win)))
+
+(defun cl-codegraph--position-on-symbol (sym)
+  "After jumping to a definition, position point on the symbol name."
+  (let ((bare-name (if (string-match ".*::?\\(.+\\)" sym)
+                       (match-string 1 sym)
+                     sym)))
+    (when (re-search-forward (regexp-quote bare-name) (line-end-position 3) t)
+      (goto-char (match-beginning 0)))))
 
 (defun cl-codegraph--navigate-to (sym)
   "Query and display SYM in the codegraph buffer."
