@@ -132,9 +132,20 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
               (setq pos (+ sym-end 2)))))))))
 
 (defun cl-codegraph--button-action (button)
-  "Navigate to the symbol associated with BUTTON."
+  "Navigate to the symbol associated with BUTTON: jump to source and update codegraph."
   (let ((sym (button-get button 'cl-codegraph-symbol)))
-    (cl-codegraph--navigate-to sym)))
+    (cl-codegraph--navigate-to sym)
+    (cl-codegraph--jump-to-definition sym)))
+
+(defun cl-codegraph--jump-to-definition (sym)
+  "Jump to SYM's definition in the source buffer using Slime/Sly."
+  (let ((name (if (string-match ".*::?\\(.*\\)" sym)
+                  (match-string 1 sym)
+                sym)))
+    (cond ((fboundp 'slime-edit-definition)
+           (slime-edit-definition name))
+          ((fboundp 'sly-edit-definition)
+           (sly-edit-definition name)))))
 
 (defun cl-codegraph--navigate-to (sym)
   "Query and display SYM in the codegraph buffer."
