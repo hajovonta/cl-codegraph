@@ -152,9 +152,10 @@ Positions cursor on the symbol name."
 
 (defun cl-codegraph--ensure-double-colon (sym)
   "Ensure SYM uses :: (works for both exported and internal in Slime)."
-  (if (string-match "\\(.+?\\):\\([^:].*\\)" sym)
-      (concat (match-string 1 sym) "::" (match-string 2 sym))
-    sym))
+  (cond ((string-match "\\(.+?\\)::\\(.+\\)" sym) sym)  ;; already ::
+        ((string-match "\\(.+?\\):\\(.+\\)" sym)
+         (concat (match-string 1 sym) "::" (match-string 2 sym)))
+        (t sym)))
 
 (defun cl-codegraph--find-source-window ()
   "Find a window displaying a Lisp source file (not *codegraph*)."
