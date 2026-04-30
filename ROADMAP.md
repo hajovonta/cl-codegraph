@@ -57,8 +57,9 @@
   - dead-exports / undocumented-exports
   - unused-packages
   - diff-summary (what changed since last build?)
-  - export-dot (render neighborhood as Graphviz)
-- [ ] DOT-rendered neighborhood graph in a dedicated buffer/window
+
+### Visualization
+- [ ] Interactive web-based graph viewer via Ariadne's Cytoscape.js (browse call graphs, filter by edge type, click to explore)
 
 ### Code Intelligence
 - [x] Per-method call edges — show callers/callees per GF method specialization
