@@ -193,12 +193,22 @@ Positions cursor on the symbol name."
           (cl-codegraph--navigate-to (downcase sym)))))))
 
 (defun cl-codegraph-back ()
-  "Go back to the previous symbol in navigation history."
+  "Go back to the previous symbol in navigation history. Jumps source too."
   (interactive)
   (if cl-codegraph--history
       (let ((prev (pop cl-codegraph--history)))
-        (setq cl-codegraph--current-symbol nil) ;; prevent double-push
-        (cl-codegraph--navigate-to prev))
+        (setq cl-codegraph--current-symbol nil)
+        (let* ((pkg (if (string-match "\\(.+?\\)::?" prev)
+                        (match-string 1 prev)
+                      (or cl-codegraph--package "cl-user")))
+               (form `(cl-codegraph:describe-symbol-live
+                       ,(intern (concat ":" pkg))
+                       ,prev)))
+          (glue-send-async form
+                           (lambda (result)
+                             (when result
+                               (cl-codegraph--update-view-buffer result prev)))))
+        (cl-codegraph--jump-to-definition prev))
     (message "No previous symbol")))
 
 (defun cl-codegraph--ensure-view-window ()
