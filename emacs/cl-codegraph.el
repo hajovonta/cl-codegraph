@@ -138,10 +138,9 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
     (cl-codegraph--jump-to-definition sym)))
 
 (defun cl-codegraph--jump-to-definition (sym)
-  "Jump to SYM's definition in the source buffer using Slime/Sly."
-  (let ((name (if (string-match ".*::?\\(.*\\)" sym)
-                  (match-string 1 sym)
-                sym)))
+  "Jump to SYM's definition in the source buffer using Slime/Sly.
+SYM should be fully qualified (e.g. \"cl-dtn::compute-block-crc\")."
+  (let ((name (upcase sym)))
     (cond ((fboundp 'slime-edit-definition)
            (slime-edit-definition name))
           ((fboundp 'sly-edit-definition)
