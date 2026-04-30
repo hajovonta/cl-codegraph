@@ -140,8 +140,8 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
 (defun cl-codegraph--jump-to-definition (sym)
   "Jump to SYM's definition in the source window (not the codegraph window).
 Positions cursor on the symbol name."
-  (let ((name (upcase sym))
-        (source-window (cl-codegraph--find-source-window)))
+  (let* ((name (upcase (cl-codegraph--ensure-double-colon sym)))
+         (source-window (cl-codegraph--find-source-window)))
     (when source-window
       (with-selected-window source-window
         (cond ((fboundp 'slime-edit-definition)
@@ -149,6 +149,12 @@ Positions cursor on the symbol name."
               ((fboundp 'sly-edit-definition)
                (sly-edit-definition name)))
         (cl-codegraph--position-on-symbol sym)))))
+
+(defun cl-codegraph--ensure-double-colon (sym)
+  "Ensure SYM uses :: (works for both exported and internal in Slime)."
+  (if (string-match "\\(.+?\\):\\([^:].*\\)" sym)
+      (concat (match-string 1 sym) "::" (match-string 2 sym))
+    sym))
 
 (defun cl-codegraph--find-source-window ()
   "Find a window displaying a Lisp source file (not *codegraph*)."
