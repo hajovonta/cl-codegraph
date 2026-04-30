@@ -39,9 +39,13 @@
 - [x] Emacs: auto-detect buffer package from (in-package) form
 - [x] Emacs: interactive navigation (RET to visit, l to go back)
 - [x] Emacs: jump to source definition in source window
-- [x] Emacs: clickable callers/callees/references as links
+- [x] Emacs: clickable callers/callees/references/methods/classes as links
 - [x] Emacs: enable-globally for all Lisp buffers
 - [x] Emacs: :: fallback for internal symbol lookup
+- [x] Emacs: method URI navigation (shows per-method callees/specializers)
+- [x] Emacs: class details (superclasses, subclasses, slots, specializing methods)
+- [x] Emacs: local variable context (parameters, let/dolist/dotimes bindings with value forms)
+- [x] Emacs: graceful handling of unloaded packages
 
 ## Next
 
@@ -58,7 +62,8 @@
 
 ### Code Intelligence
 - [x] Per-method call edges — show callers/callees per GF method specialization
-- [ ] Local variable context — show binding form, enclosing function, value expression for let/lambda/parameter bindings not in the graph
+- [x] Local variable context — show binding form, enclosing function, value expression for let/dolist/dotimes/multiple-value-bind/destructuring-bind
+- [ ] Loop variable context — detect `loop for x ...` bindings
 
 ### KG-Specific Value (beyond Slime)
 - [ ] Architecture validation via SHACL shapes on code structure
