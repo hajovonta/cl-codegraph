@@ -115,21 +115,16 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
   "Make symbol references in the buffer clickable."
   (save-excursion
     (goto-char (point-min))
-    (while (re-search-forward "^  \\(?:calls\\|called-by\\|referenced-by\\): \\(.+\\)$" nil t)
-      (let ((start (match-beginning 1))
-            (end (match-end 1))
-            (line-content (match-string 1)))
-        ;; Split by ", " and buttonize each symbol
-        (let ((pos start))
-          (dolist (sym (split-string line-content ", "))
-            (let ((sym-start pos)
-                  (sym-end (+ pos (length sym))))
-              (make-text-button sym-start sym-end
-                                'action #'cl-codegraph--button-action
-                                'cl-codegraph-symbol sym
-                                'face 'link
-                                'help-echo (format "Visit %s" sym))
-              (setq pos (+ sym-end 2)))))))))
+    ;; Match lines that are indented symbol URIs (4+ spaces then a pkg:sym or pkg::sym)
+    (while (re-search-forward "^    \\([a-z][a-z0-9*+._-]*::?[a-z0-9*+._/-]*\\)$" nil t)
+      (let ((sym (match-string 1))
+            (start (match-beginning 1))
+            (end (match-end 1)))
+        (make-text-button start end
+                          'action #'cl-codegraph--button-action
+                          'cl-codegraph-symbol sym
+                          'face 'link
+                          'help-echo (format "Visit %s" sym))))))
 
 (defun cl-codegraph--button-action (button)
   "Navigate to the symbol associated with BUTTON: jump to source and update codegraph."

@@ -253,11 +253,34 @@ showing what changed (:added N :removed M)."
       (when doc
         (format s "  doc:  ~A~%" (ariadne:triple-object (first doc))))
       (when calls
-        (format s "  calls: ~{~A~^, ~}~%" calls))
+        (format s "  calls:~%")
+        (dolist (c calls) (format s "    ~A~%" c)))
       (when callers
-        (format s "  called-by: ~{~A~^, ~}~%" callers))
+        (format s "  called-by:~%")
+        (dolist (c callers) (format s "    ~A~%" c)))
       (when readers
-        (format s "  referenced-by: ~{~A~^, ~}~%" readers)))))
+        (format s "  referenced-by:~%")
+        (dolist (r readers) (format s "    ~A~%" r)))
+      ;; Per-method call edges for GFs
+      (when (and type-triples
+                 (string= (ariadne:triple-object (first type-triples)) "generic-function"))
+        (let ((methods (ariadne:get-triples graph :predicate +method-of+ :object uri)))
+          (when methods
+            (format s "  methods:~%")
+            (dolist (mtr methods)
+              (let* ((method-uri (ariadne:triple-subject mtr))
+                     (method-calls (mapcar #'ariadne:triple-object
+                                           (ariadne:get-triples graph :subject method-uri
+                                                                      :predicate +calls+)))
+                     (specs (mapcar #'ariadne:triple-object
+                                    (ariadne:get-triples graph :subject method-uri
+                                                               :predicate +specializes-on+))))
+                (format s "    ~A~%" method-uri)
+                (when specs
+                  (format s "      specializes: ~{~A~^, ~}~%" specs))
+                (when method-calls
+                  (format s "      calls:~%")
+                  (dolist (c method-calls) (format s "        ~A~%" c)))))))))))
 
 (defun summary (graph)
   "Return a formatted overview of the graph."
