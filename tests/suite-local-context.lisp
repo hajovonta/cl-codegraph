@@ -30,7 +30,7 @@
     (is (not (null ctx)))
     (is (equal (getf ctx :kind) "let binding"))
     (is (equal (getf ctx :function) "compute"))
-    (is (equal (getf ctx :value-form) "(+ X Y)"))))
+    (is (equal (getf ctx :value-form) "(+ x y)"))))
 
 (test returns-nil-for-non-local
   "Returns nil for a symbol that isn't locally bound"
