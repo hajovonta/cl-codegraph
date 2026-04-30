@@ -38,12 +38,14 @@
 
 (defvar cl-codegraph--last-symbol nil
   "Last symbol we queried, to avoid redundant requests.")
+(make-variable-buffer-local 'cl-codegraph--last-symbol)
 
 (defvar cl-codegraph--idle-timer nil
   "Idle timer for debounced updates.")
 
 (defvar cl-codegraph--package nil
-  "The monitored package name (string).")
+  "The monitored package name (string). Buffer-local when set.")
+(make-variable-buffer-local 'cl-codegraph--package)
 
 ;;; Symbol extraction
 
