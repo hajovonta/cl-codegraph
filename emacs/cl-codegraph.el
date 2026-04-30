@@ -241,7 +241,8 @@ Positions cursor on the symbol name."
                                ,(intern (concat ":" pkg))
                                ,sym)))
                   (if (and result (> (length result) (+ (length ,sym) 2))
-                           (search "type:" result))
+                           (search "type:" result)
+                           (not (search "type: other" result)))
                       result
                       ;; Fall back to local context
                       (let ((source ,(when file
