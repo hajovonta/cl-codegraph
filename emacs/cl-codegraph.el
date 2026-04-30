@@ -130,7 +130,9 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
   "Navigate to the symbol associated with BUTTON: jump to source and update codegraph."
   (let ((sym (button-get button 'cl-codegraph-symbol)))
     (cl-codegraph--navigate-to sym)
-    (cl-codegraph--jump-to-definition sym)))
+    ;; Don't jump for method URIs — they're internal graph identifiers
+    (unless (string-match "/method/" sym)
+      (cl-codegraph--jump-to-definition sym))))
 
 (defun cl-codegraph--jump-to-definition (sym)
   "Jump to SYM's definition in the source window (not the codegraph window).
