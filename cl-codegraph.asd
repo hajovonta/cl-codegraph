@@ -6,4 +6,5 @@
   :components ((:file "package")
                (:file "codegraph")
                (:file "queries")
-               (:file "monitor")))
+               (:file "monitor")
+               (:file "local-context")))

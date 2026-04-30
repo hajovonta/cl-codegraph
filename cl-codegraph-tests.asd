@@ -21,4 +21,5 @@
                              (:file "suite-monitor-vars")
                              (:file "suite-auto-monitor")
                              (:file "suite-var-value")
-                             (:file "suite-per-method-calls")))))
+                             (:file "suite-per-method-calls")
+                             (:file "suite-local-context")))))

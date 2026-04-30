@@ -231,11 +231,34 @@ Positions cursor on the symbol name."
   "Send an async query for SYM to the Lisp side."
   (setq cl-codegraph--current-request-id
         (1+ cl-codegraph--current-request-id))
-  (let ((req-id cl-codegraph--current-request-id)
-        (pkg (or cl-codegraph--package "cl-user"))
-        (form `(cl-codegraph:describe-symbol-live
-                ,(intern (concat ":" (or cl-codegraph--package "cl-user")))
-                ,sym)))
+  (let* ((req-id cl-codegraph--current-request-id)
+         (pkg (or cl-codegraph--package "cl-user"))
+         (file (buffer-file-name))
+         (line (line-number-at-pos))
+         (col (current-column))
+         ;; Try graph first, fall back to local-context
+         (form `(let ((result (cl-codegraph:describe-symbol-live
+                               ,(intern (concat ":" pkg))
+                               ,sym)))
+                  (if (and result (> (length result) (+ (length ,sym) 2))
+                           (search "type:" result))
+                      result
+                      ;; Fall back to local context
+                      (let ((source ,(when file
+                                       `(with-open-file (s ,file)
+                                          (let ((buf (make-string (file-length s))))
+                                            (read-sequence buf s)
+                                            buf)))))
+                        (if source
+                            (let ((ctx (cl-codegraph:local-context source ,line ,col ,sym)))
+                              (if ctx
+                                  (format nil "~A~%  ~A in: ~A~@[~%  value-form: ~A~]~%"
+                                          ,sym
+                                          (getf ctx :kind)
+                                          (getf ctx :function)
+                                          (getf ctx :value-form))
+                                  (format nil "~A~%  (not in graph)~%" ,sym)))
+                            (format nil "~A~%  (not in graph)~%" ,sym)))))))
     (glue-send-async form
                      (lambda (result)
                        (unless (cl-codegraph--stale-p req-id)

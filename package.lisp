@@ -31,6 +31,8 @@
    #:summary
    ;; Package hygiene
    #:unused-packages
+   ;; Local context
+   #:local-context
    ;; Live monitoring
    #:monitor
    #:unmonitor
