@@ -115,7 +115,7 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
   "Make symbol references in the buffer clickable."
   (save-excursion
     (goto-char (point-min))
-    (while (re-search-forward "^  \\(?:calls\\|called-by\\): \\(.+\\)$" nil t)
+    (while (re-search-forward "^  \\(?:calls\\|called-by\\|referenced-by\\): \\(.+\\)$" nil t)
       (let ((start (match-beginning 1))
             (end (match-end 1))
             (line-content (match-string 1)))
