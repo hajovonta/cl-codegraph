@@ -261,6 +261,28 @@ showing what changed (:added N :removed M)."
       (when readers
         (format s "  referenced-by:~%")
         (dolist (r readers) (format s "    ~A~%" r)))
+      ;; Class-specific info
+      (when (and type-triples (string= (ariadne:triple-object (first type-triples)) "class"))
+        (let ((slots (mapcar #'ariadne:triple-object
+                             (ariadne:get-triples graph :subject uri :predicate +has-slot+)))
+              (supers (mapcar #'ariadne:triple-object
+                              (ariadne:get-triples graph :subject uri :predicate +subclass-of+)))
+              (subclasses (mapcar #'ariadne:triple-subject
+                                  (ariadne:get-triples graph :object uri :predicate +subclass-of+)))
+              (specializers (mapcar #'ariadne:triple-subject
+                                    (ariadne:get-triples graph :object uri :predicate +specializes-on+))))
+          (when supers
+            (format s "  superclasses:~%")
+            (dolist (c supers) (format s "    ~A~%" c)))
+          (when subclasses
+            (format s "  subclasses:~%")
+            (dolist (c subclasses) (format s "    ~A~%" c)))
+          (when slots
+            (format s "  slots:~%")
+            (dolist (sl slots) (format s "    ~A~%" sl)))
+          (when specializers
+            (format s "  methods specializing on this:~%")
+            (dolist (m specializers) (format s "    ~A~%" m)))))
       ;; Per-method call edges for GFs
       (when (and type-triples
                  (string= (ariadne:triple-object (first type-triples)) "generic-function"))
