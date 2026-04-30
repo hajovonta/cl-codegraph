@@ -213,7 +213,7 @@ Returns lowercase package name string, or nil."
 (defun cl-codegraph--on-idle ()
   "Called after idle delay. Query symbol at point if changed."
   (when cl-codegraph-mode
-    (let ((pkg (or cl-codegraph--package (cl-codegraph--detect-buffer-package))))
+    (let ((pkg (cl-codegraph--detect-buffer-package)))
       (when pkg
         (setq cl-codegraph--package pkg)
         (let* ((sym-raw (cl-codegraph--symbol-at-point))
