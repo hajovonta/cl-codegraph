@@ -45,7 +45,7 @@
 - [ ] Detect which symbols were recompiled and update edges
 
 ### Additional Queries
-- [ ] "Unused imports" — packages in use-list but no calls to their symbols
+- [x] "Unused imports" — packages in use-list but no calls to their symbols
 
 ### REPL Integration
 - [ ] Slime/Sly integration for "show me the graph around this symbol"

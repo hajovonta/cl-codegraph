@@ -52,6 +52,9 @@ Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols
 ;; Connectivity metrics
 (cl-codegraph:fan-out *g* "pkg:some-fn")  ;; how many functions it calls
 (cl-codegraph:fan-in *g* "pkg:some-fn")   ;; how many functions call it
+
+;; Detect packages in use-list that are never actually called
+(cl-codegraph:unused-packages *g* :my-package)
 ```
 
 ## REPL Integration
