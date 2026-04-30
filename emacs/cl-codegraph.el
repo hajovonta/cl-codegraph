@@ -170,9 +170,12 @@ Positions cursor on the symbol name."
 (defun cl-codegraph--navigate-to (sym)
   "Query and display SYM in the codegraph buffer. Bypasses staleness check."
   (setq cl-codegraph--last-symbol sym)
-  (let ((form `(cl-codegraph:describe-symbol-live
-                ,(intern (concat ":" (or cl-codegraph--package "cl-user")))
-                ,sym)))
+  (let* ((pkg (if (string-match "\\(.+?\\)::?" sym)
+                  (match-string 1 sym)
+                (or cl-codegraph--package "cl-user")))
+         (form `(cl-codegraph:describe-symbol-live
+                 ,(intern (concat ":" pkg))
+                 ,sym)))
     (glue-send-async form
                      (lambda (result)
                        (when result
