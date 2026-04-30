@@ -113,19 +113,21 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
   "Make symbol references in the buffer clickable."
   (save-excursion
     (goto-char (point-min))
-    (while (re-search-forward "\\([a-z][a-z0-9*+-]*\\(?:::?[a-z0-9*+-]*\\)?\\)" nil t)
-      (let ((sym (match-string 1))
-            (start (match-beginning 1))
-            (end (match-end 1)))
-        ;; Only buttonize in calls/called-by lines
-        (when (save-excursion
-                (goto-char (line-beginning-position))
-                (looking-at "  \\(calls\\|called-by\\):"))
-          (make-text-button start end
-                            'action #'cl-codegraph--button-action
-                            'cl-codegraph-symbol sym
-                            'face 'link
-                            'help-echo (format "Visit %s" sym)))))))
+    (while (re-search-forward "^  \\(?:calls\\|called-by\\): \\(.+\\)$" nil t)
+      (let ((start (match-beginning 1))
+            (end (match-end 1))
+            (line-content (match-string 1)))
+        ;; Split by ", " and buttonize each symbol
+        (let ((pos start))
+          (dolist (sym (split-string line-content ", "))
+            (let ((sym-start pos)
+                  (sym-end (+ pos (length sym))))
+              (make-text-button sym-start sym-end
+                                'action #'cl-codegraph--button-action
+                                'cl-codegraph-symbol sym
+                                'face 'link
+                                'help-echo (format "Visit %s" sym))
+              (setq pos (+ sym-end 2)))))))))
 
 (defun cl-codegraph--button-action (button)
   "Navigate to the symbol associated with BUTTON."
