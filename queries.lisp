@@ -239,18 +239,25 @@ showing what changed (:added N :removed M)."
           (calls (what-calls graph uri))
           (callers (who-calls-p graph uri))
           (ll (ariadne:get-triples graph :subject uri :predicate +lambda-list+))
-          (doc (ariadne:get-triples graph :subject uri :predicate +docstring+)))
+          (doc (ariadne:get-triples graph :subject uri :predicate +docstring+))
+          (val (ariadne:get-triples graph :subject uri :predicate +value+))
+          (readers (mapcar #'ariadne:triple-subject
+                           (ariadne:get-triples graph :object uri :predicate +reads-var+))))
       (format s "~A~%" uri)
       (when type-triples
         (format s "  type: ~A~%" (ariadne:triple-object (first type-triples))))
       (when ll
         (format s "  args: ~A~%" (ariadne:triple-object (first ll))))
+      (when val
+        (format s "  value: ~A~%" (ariadne:triple-object (first val))))
       (when doc
         (format s "  doc:  ~A~%" (ariadne:triple-object (first doc))))
       (when calls
         (format s "  calls: ~{~A~^, ~}~%" calls))
       (when callers
-        (format s "  called-by: ~{~A~^, ~}~%" callers)))))
+        (format s "  called-by: ~{~A~^, ~}~%" callers))
+      (when readers
+        (format s "  referenced-by: ~{~A~^, ~}~%" readers)))))
 
 (defun summary (graph)
   "Return a formatted overview of the graph."

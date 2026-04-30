@@ -27,6 +27,7 @@
 (define-constant +expands-macro+ "cg:expandsMacro")
 (define-constant +reads-var+ "cg:readsVar")
 (define-constant +writes-var+ "cg:writesVar")
+(define-constant +value+ "cg:value")
 
 ;;; Symbol classification
 
@@ -158,6 +159,12 @@
                 (documentation sym 'variable)))))
     (when doc
       (ariadne:add-triple graph uri +docstring+ doc)))
+  ;; Value (for constants and variables)
+  (when (member kind '(:constant :special-variable))
+    (when (boundp sym)
+      (ariadne:add-triple graph uri +value+
+                          (let ((*print-length* 10) (*print-level* 3))
+                            (prin1-to-string (symbol-value sym))))))
   ;; Source location
   (let* ((type (case kind
                  ((:function :generic-function) :function)
@@ -180,8 +187,8 @@
       (let ((user (car entry)))
         (when (and (symbolp user) (member user exported-symbols))
           (ariadne:add-triple graph (symbol-uri user) +expands-macro+ uri)))))
-  ;; who-references / who-sets: for exported specials, find readers/writers
-  (when (member kind '(:special-variable))
+  ;; who-references / who-sets: for exported specials and constants, find readers/writers
+  (when (member kind '(:special-variable :constant))
     (dolist (entry (sb-introspect:who-references sym))
       (let ((reader (car entry)))
         (when (and (symbolp reader) (member reader exported-symbols))
