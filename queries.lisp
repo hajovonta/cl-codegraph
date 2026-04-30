@@ -232,6 +232,8 @@ showing what changed (:added N :removed M)."
 
 (defun describe-symbol (graph uri)
   "Return a formatted string describing a symbol in the graph."
+  (unless graph
+    (return-from describe-symbol (format nil "~A~%  (not monitored)~%" uri)))
   (with-output-to-string (s)
     (let ((type-triples (ariadne:get-triples graph :subject uri :predicate +type+))
           (calls (what-calls graph uri))
