@@ -136,8 +136,8 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
 
 (defun cl-codegraph--navigate-to (sym)
   "Query and display SYM in the codegraph buffer."
-  (let ((form `(cl-codegraph:describe-symbol
-                (cl-codegraph:graph ,(intern (concat ":" cl-codegraph--package)))
+  (let ((form `(cl-codegraph:describe-symbol-live
+                ,(intern (concat ":" (or cl-codegraph--package "cl-user")))
                 ,sym)))
     (glue-send-async form
                      (lambda (result)
@@ -184,8 +184,9 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
   (setq cl-codegraph--current-request-id
         (1+ cl-codegraph--current-request-id))
   (let ((req-id cl-codegraph--current-request-id)
-        (form `(cl-codegraph:describe-symbol
-                (cl-codegraph:graph ,(intern (concat ":" cl-codegraph--package)))
+        (pkg (or cl-codegraph--package "cl-user"))
+        (form `(cl-codegraph:describe-symbol-live
+                ,(intern (concat ":" (or cl-codegraph--package "cl-user")))
                 ,sym)))
     (glue-send-async form
                      (lambda (result)

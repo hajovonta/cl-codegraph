@@ -18,4 +18,5 @@
                              (:file "suite-repl")
                              (:file "suite-unused-imports")
                              (:file "suite-monitor")
-                             (:file "suite-monitor-vars")))))
+                             (:file "suite-monitor-vars")
+                             (:file "suite-auto-monitor")))))

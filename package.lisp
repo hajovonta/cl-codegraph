@@ -35,6 +35,8 @@
    #:monitor
    #:unmonitor
    #:graph
+   #:ensure-monitor
+   #:describe-symbol-live
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+

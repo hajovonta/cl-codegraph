@@ -86,6 +86,18 @@ Returns the graph."
     (when (= 0 (hash-table-count *monitors*))
       (remove-hook))))
 
+(defun ensure-monitor (package-designator)
+  "Monitor PACKAGE-DESIGNATOR if not already monitored. Returns the graph."
+  (let ((pkg (find-package package-designator)))
+    (unless (and pkg (gethash pkg *monitors*))
+      (monitor package-designator :include-internal t)))
+  (graph package-designator))
+
+(defun describe-symbol-live (package-designator uri)
+  "Auto-monitor PACKAGE-DESIGNATOR if needed, then describe URI."
+  (ensure-monitor package-designator)
+  (describe-symbol (graph package-designator) uri))
+
 (defun graph (package-designator)
   "Get the live graph for PACKAGE-DESIGNATOR. Flushes dirty symbols first.
 Returns nil if not monitored."
