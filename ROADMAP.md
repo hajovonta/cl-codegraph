@@ -33,6 +33,18 @@
 
 ## Next
 
+### Emacs UI
+- [ ] Transient menu in *codegraph* buffer for quick access to:
+  - call-chain (prompt for target, show path)
+  - impact-of (what breaks if I change this?)
+  - find-cycles (show circular dependencies)
+  - dead-exports / undocumented-exports
+  - unused-packages
+  - diff-summary (what changed since last build?)
+  - export-dot (render neighborhood as Graphviz)
+- [ ] Dedicated Emacs window showing DOT-rendered neighborhood graph
+- [ ] Auto-update visualization as the user navigates/edits code
+
 ### Live Development Dashboard
 - [ ] Hook into SBCL definition hooks to auto-rebuild graph on code changes
 - [ ] Dedicated Emacs window showing relevant subgraphs (neighborhood of current function)
@@ -43,6 +55,12 @@
 - [x] refresh-graph: rebuild in-place with change reporting (:added N :removed M)
 - [ ] Selective rebuild (only re-index changed symbols based on source timestamps)
 - [ ] Detect which symbols were recompiled and update edges
+
+### KG-Specific Value (beyond Slime)
+- [ ] Architecture validation via SHACL shapes on code structure
+- [ ] CI integration — detect cycles/dead code/missing docs in PRs
+- [ ] Graph persistence — save/load/compare across sessions
+- [ ] Architectural drift tracking over time
 
 ### Additional Queries
 - [x] "Unused imports" — packages in use-list but no calls to their symbols
