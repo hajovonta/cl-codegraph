@@ -14,10 +14,12 @@
 - [x] Docstrings
 - [x] Source file locations
 - [x] Macro expansion tracking (expandsMacro)
-- [x] Special variable read/write tracking (readsVar, writesVar)
+- [x] Special variable/constant read/write tracking (readsVar, writesVar)
+- [x] Variable/constant values (cg:value)
 - [x] Query: what-calls / who-calls-p
 - [x] Query: dead-exports (exported but never called)
 - [x] Query: undocumented-exports
+- [x] Query: unused-packages
 - [x] Query: call-chain (BFS path from A to B)
 - [x] Query: find-cycles (circular call detection)
 - [x] Query: impact-of (transitive callers — what breaks if X changes?)
@@ -25,16 +27,26 @@
 - [x] Visualization: export-dot with predicate filtering
 - [x] Visualization: neighborhood subgraph extraction
 - [x] Diff: compare graph snapshots (added/removed triples)
+- [x] Diff: refresh-graph with change reporting
 - [x] Multi-package: build-multi-graph (unified graph across packages)
 - [x] Multi-package: build-system-graph (ASDF system)
-
-- [x] REPL: describe-symbol (formatted symbol overview)
+- [x] REPL: describe-symbol (type, args, value, doc, calls, callers, references)
 - [x] REPL: summary (graph overview with counts)
+- [x] Live monitoring: per-symbol dirty tracking via SBCL hooks
+- [x] Live monitoring: hooks for defun/defmacro/defmethod/defvar/defparameter/defclass
+- [x] Live monitoring: auto-monitor on first access (ensure-monitor)
+- [x] Emacs: live *codegraph* side buffer with idle-timer updates
+- [x] Emacs: auto-detect buffer package from (in-package) form
+- [x] Emacs: interactive navigation (RET to visit, l to go back)
+- [x] Emacs: jump to source definition in source window
+- [x] Emacs: clickable callers/callees/references as links
+- [x] Emacs: enable-globally for all Lisp buffers
+- [x] Emacs: :: fallback for internal symbol lookup
 
 ## Next
 
 ### Emacs UI
-- [ ] Transient menu in *codegraph* buffer for quick access to:
+- [ ] Transient menu in *codegraph* buffer for aggregate queries:
   - call-chain (prompt for target, show path)
   - impact-of (what breaks if I change this?)
   - find-cycles (show circular dependencies)
@@ -42,19 +54,11 @@
   - unused-packages
   - diff-summary (what changed since last build?)
   - export-dot (render neighborhood as Graphviz)
-- [ ] Dedicated Emacs window showing DOT-rendered neighborhood graph
-- [ ] Auto-update visualization as the user navigates/edits code
+- [ ] DOT-rendered neighborhood graph in a dedicated buffer/window
 
-### Live Development Dashboard
-- [ ] Hook into SBCL definition hooks to auto-rebuild graph on code changes
-- [ ] Dedicated Emacs window showing relevant subgraphs (neighborhood of current function)
-- [ ] Auto-update visualization as the user navigates/edits code
-- [ ] Track graph evolution over a session — what changed since last rebuild
-
-### Incremental Updates
-- [x] refresh-graph: rebuild in-place with change reporting (:added N :removed M)
-- [ ] Selective rebuild (only re-index changed symbols based on source timestamps)
-- [ ] Detect which symbols were recompiled and update edges
+### Code Intelligence
+- [ ] Per-method call edges — show callers/callees per GF method specialization instead of flattened
+- [ ] Local variable context — show binding form, enclosing function, value expression for let/lambda/parameter bindings not in the graph
 
 ### KG-Specific Value (beyond Slime)
 - [ ] Architecture validation via SHACL shapes on code structure
@@ -62,18 +66,10 @@
 - [ ] Graph persistence — save/load/compare across sessions
 - [ ] Architectural drift tracking over time
 
-### Additional Queries
-- [x] "Unused imports" — packages in use-list but no calls to their symbols
-- [ ] Per-method call edges — show callers/callees per GF method specialization instead of flattened
-
-### REPL Integration
-- [x] Slime integration with live *codegraph* buffer
-- [x] Interactive navigation (RET to visit, l to go back)
-- [ ] Local variable context — show binding form, enclosing function, value expression for let/lambda/parameter bindings not in the graph
-
 ## Design Decisions
 
 - **Forward call graph only**: `find-function-callees` + `safe-method-fast-function` gives O(n) performance. No `who-calls` reverse scanning needed.
 - **String URIs**: `package:symbol` (exported) or `package::symbol` (internal). Readable, queryable via SPARQL.
-- **Rebuild-on-demand**: No hooks yet. Explicit `rebuild-graph` keeps things predictable.
+- **Lazy updates**: SBCL hooks mark symbols dirty; re-indexing happens on next query. Zero cost when not querying.
+- **Auto-monitor**: Packages are monitored automatically on first access with `:include-internal t`.
 - **SBCL-specific**: Uses `sb-introspect` and `sb-pcl` internals. Not portable to other implementations.
