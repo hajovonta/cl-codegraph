@@ -168,15 +168,15 @@ Positions cursor on the symbol name."
       (goto-char (match-beginning 0)))))
 
 (defun cl-codegraph--navigate-to (sym)
-  "Query and display SYM in the codegraph buffer."
+  "Query and display SYM in the codegraph buffer. Bypasses staleness check."
+  (setq cl-codegraph--last-symbol sym)
   (let ((form `(cl-codegraph:describe-symbol-live
                 ,(intern (concat ":" (or cl-codegraph--package "cl-user")))
                 ,sym)))
     (glue-send-async form
                      (lambda (result)
                        (when result
-                         (cl-codegraph--update-view-buffer result sym)
-                         (cl-codegraph--ensure-view-window))))))
+                         (cl-codegraph--update-view-buffer result sym))))))
 
 (defun cl-codegraph-visit-symbol-at-point ()
   "Navigate to the symbol at point in the codegraph buffer."
