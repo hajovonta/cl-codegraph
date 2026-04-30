@@ -75,13 +75,93 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
 
 ;;; View buffer
 
-(defun cl-codegraph--update-view-buffer (content)
-  "Update the *codegraph* buffer with CONTENT."
+(defvar-local cl-codegraph--history nil
+  "Navigation history stack for the codegraph buffer.")
+
+(defvar-local cl-codegraph--current-symbol nil
+  "Currently displayed symbol in the codegraph buffer.")
+
+(defvar cl-codegraph-view-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'cl-codegraph-visit-symbol-at-point)
+    (define-key map (kbd "l") #'cl-codegraph-back)
+    (define-key map (kbd "q") #'quit-window)
+    map)
+  "Keymap for cl-codegraph view buffer.")
+
+(define-derived-mode cl-codegraph-view-mode special-mode "Codegraph"
+  "Major mode for the *codegraph* view buffer.
+\\{cl-codegraph-view-mode-map}")
+
+(defun cl-codegraph--update-view-buffer (content &optional symbol)
+  "Update the *codegraph* buffer with CONTENT. Track SYMBOL for navigation."
   (let ((buf (get-buffer-create cl-codegraph-buffer-name)))
     (with-current-buffer buf
+      (unless (eq major-mode 'cl-codegraph-view-mode)
+        (cl-codegraph-view-mode))
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert content)))))
+        (insert content)
+        (goto-char (point-min))
+        (cl-codegraph--buttonize-symbols))
+      (when (and symbol (not (equal symbol cl-codegraph--current-symbol)))
+        (when cl-codegraph--current-symbol
+          (push cl-codegraph--current-symbol cl-codegraph--history))
+        (setq cl-codegraph--current-symbol symbol)))))
+
+(defun cl-codegraph--buttonize-symbols ()
+  "Make symbol references in the buffer clickable."
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "\\([a-z][a-z0-9*+-]*\\(?:::?[a-z0-9*+-]*\\)?\\)" nil t)
+      (let ((sym (match-string 1))
+            (start (match-beginning 1))
+            (end (match-end 1)))
+        ;; Only buttonize in calls/called-by lines
+        (when (save-excursion
+                (goto-char (line-beginning-position))
+                (looking-at "  \\(calls\\|called-by\\):"))
+          (make-text-button start end
+                            'action #'cl-codegraph--button-action
+                            'cl-codegraph-symbol sym
+                            'face 'link
+                            'help-echo (format "Visit %s" sym)))))))
+
+(defun cl-codegraph--button-action (button)
+  "Navigate to the symbol associated with BUTTON."
+  (let ((sym (button-get button 'cl-codegraph-symbol)))
+    (cl-codegraph--navigate-to sym)))
+
+(defun cl-codegraph--navigate-to (sym)
+  "Query and display SYM in the codegraph buffer."
+  (let ((form `(cl-codegraph:describe-symbol
+                (cl-codegraph:graph ,(intern (concat ":" cl-codegraph--package)))
+                ,sym)))
+    (glue-send-async form
+                     (lambda (result)
+                       (when result
+                         (cl-codegraph--update-view-buffer result sym)
+                         (cl-codegraph--ensure-view-window))))))
+
+(defun cl-codegraph-visit-symbol-at-point ()
+  "Navigate to the symbol at point in the codegraph buffer."
+  (interactive)
+  (let ((button (button-at (point))))
+    (if button
+        (button-activate button)
+      ;; Try raw symbol at point
+      (let ((sym (thing-at-point 'symbol t)))
+        (when sym
+          (cl-codegraph--navigate-to (downcase sym)))))))
+
+(defun cl-codegraph-back ()
+  "Go back to the previous symbol in navigation history."
+  (interactive)
+  (if cl-codegraph--history
+      (let ((prev (pop cl-codegraph--history)))
+        (setq cl-codegraph--current-symbol nil) ;; prevent double-push
+        (cl-codegraph--navigate-to prev))
+    (message "No previous symbol")))
 
 (defun cl-codegraph--ensure-view-window ()
   "Ensure the codegraph buffer is visible in a side window."
@@ -109,7 +189,7 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
                      (lambda (result)
                        (unless (cl-codegraph--stale-p req-id)
                          (when result
-                           (cl-codegraph--update-view-buffer result)
+                           (cl-codegraph--update-view-buffer result sym)
                            (cl-codegraph--ensure-view-window)))))))
 
 ;;; Idle timer callback

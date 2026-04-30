@@ -76,5 +76,24 @@
     (should (cl-codegraph--stale-p 4))
     (should-not (cl-codegraph--stale-p 5))))
 
+(ert-deftest cl-codegraph-test-navigation-history ()
+  "Navigating to symbols builds a history stack."
+  (cl-codegraph--update-view-buffer "first content" "pkg:first")
+  (cl-codegraph--update-view-buffer "second content" "pkg:second")
+  (let ((buf (get-buffer "*codegraph*")))
+    (with-current-buffer buf
+      (should (equal cl-codegraph--current-symbol "pkg:second"))
+      (should (equal cl-codegraph--history '("pkg:first")))))
+  (kill-buffer "*codegraph*"))
+
+(ert-deftest cl-codegraph-test-navigation-no-duplicate-push ()
+  "Updating with same symbol doesn't push to history."
+  (cl-codegraph--update-view-buffer "content" "pkg:same")
+  (cl-codegraph--update-view-buffer "content2" "pkg:same")
+  (let ((buf (get-buffer "*codegraph*")))
+    (with-current-buffer buf
+      (should (null cl-codegraph--history))))
+  (kill-buffer "*codegraph*"))
+
 (provide 'cl-codegraph-tests)
 ;;; cl-codegraph-tests.el ends here
