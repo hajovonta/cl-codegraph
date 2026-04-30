@@ -46,6 +46,7 @@
 
 ### Additional Queries
 - [x] "Unused imports" — packages in use-list but no calls to their symbols
+- [ ] Per-method call edges — show callers/callees per GF method specialization instead of flattened
 
 ### REPL Integration
 - [ ] Slime/Sly integration for "show me the graph around this symbol"
