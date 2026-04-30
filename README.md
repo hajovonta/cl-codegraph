@@ -1,113 +1,81 @@
 # cl-codegraph
 
-Automatic Knowledge Graph of Common Lisp code via live SBCL image introspection.
+Automatic Knowledge Graph of Common Lisp code via live image introspection.
 
-Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols, class hierarchies, method specializations, call relationships, and metadata — all without parsing source code.
+Given a package loaded in the SBCL image, builds and maintains an Ariadne graph of its symbols, class hierarchies, method specializations, call relationships, and metadata — all without parsing source code. Includes a live Emacs integration that shows code intelligence as you navigate.
 
-## Usage
+## Quick Start
 
 ```lisp
+;; In the REPL:
 (ql:quickload :cl-codegraph)
+```
 
-;; Build a graph of any loaded package (exports only)
-(defparameter *g* (cl-codegraph:build-graph :my-package))
+```elisp
+;; In Emacs:
+(add-to-list 'load-path "~/quicklisp/local-projects/cl-codegraph/emacs/")
+(require 'cl-codegraph)
+(cl-codegraph-enable-globally)
+```
 
-;; Include internal (non-exported) symbols for full call chains
+That's it. Open any CL source file, move your cursor — the `*codegraph*` buffer appears showing type, args, docstring, callers, callees, and value for the symbol at point. Everything is automatic: package detection, graph building, and incremental updates.
+
+## Emacs Integration
+
+The `*codegraph*` buffer is a live code intelligence panel:
+
+- **Automatic** — detects package from `(in-package ...)`, auto-monitors on first access
+- **Live** — updates as you move cursor (debounced, async, non-blocking)
+- **Navigable** — RET on a caller/callee jumps to its source AND updates the view
+- **History** — `l` goes back (browser-style), `q` closes
+- **Per-method** — GFs show each method's specializers and individual callees
+
+### Keybindings in `*codegraph*`
+
+| Key | Action |
+|-----|--------|
+| RET | Visit symbol: jump to source + update view |
+| l | Go back in history |
+| q | Close window |
+
+## Programmatic API
+
+```lisp
+;; Build a graph manually
 (defparameter *g* (cl-codegraph:build-graph :my-package :include-internal t))
 
-;; Include cross-package dependencies
-(defparameter *g* (cl-codegraph:build-graph :my-package :include-external-calls t))
+;; Query helpers
+(cl-codegraph:what-calls *g* "pkg:fn")          ;; what does it call?
+(cl-codegraph:who-calls-p *g* "pkg:fn")         ;; who calls it?
+(cl-codegraph:call-chain *g* "pkg:a" "pkg:b")   ;; path from A to B
+(cl-codegraph:dead-exports *g*)                  ;; exported but never called
+(cl-codegraph:undocumented-exports *g*)          ;; missing docstrings
+(cl-codegraph:find-cycles *g*)                   ;; circular dependencies
+(cl-codegraph:impact-of *g* "pkg:fn")           ;; what breaks if I change this?
+(cl-codegraph:fan-in *g* "pkg:fn")              ;; how many call it
+(cl-codegraph:fan-out *g* "pkg:fn")             ;; how many it calls
+(cl-codegraph:unused-packages *g* :my-package)  ;; unused use-list entries
 
-;; Multi-package: unified graph spanning several packages
-(defparameter *g* (cl-codegraph:build-multi-graph '(:pkg-a :pkg-b :pkg-c)))
-
-;; ASDF system: graph the primary package of a system
-(defparameter *g* (cl-codegraph:build-system-graph :my-system))
-```
-
-## Query Helpers
-
-```lisp
-;; What does a function call?
-(cl-codegraph:what-calls *g* "my-package:some-fn")
-
-;; Who calls a function?
-(cl-codegraph:who-calls-p *g* "my-package:some-fn")
-
-;; Call path from A to B (BFS)
-(cl-codegraph:call-chain *g* "pkg:entry" "pkg:target")
-
-;; Exported functions that nothing in the package calls
-(cl-codegraph:dead-exports *g*)
-
-;; Symbols missing docstrings
-(cl-codegraph:undocumented-exports *g*)
-
-;; Find circular call dependencies
-(cl-codegraph:find-cycles *g*)
-
-;; What breaks if I change this function? (transitive callers)
-(cl-codegraph:impact-of *g* "pkg:some-fn")
-
-;; Connectivity metrics
-(cl-codegraph:fan-out *g* "pkg:some-fn")  ;; how many functions it calls
-(cl-codegraph:fan-in *g* "pkg:some-fn")   ;; how many functions call it
-
-;; Detect packages in use-list that are never actually called
-(cl-codegraph:unused-packages *g* :my-package)
-```
-
-## REPL Integration
-
-```lisp
-;; Formatted overview of a symbol
-(format t "~A" (cl-codegraph:describe-symbol *g* "ariadne:sparql"))
-;; ariadne:sparql
-;;   type: function
-;;   args: (G QUERY-STRING)
-;;   doc:  Parse and execute a SPARQL query string against graph G.
-;;   calls: ariadne:query, ariadne::parse-sparql
-
-;; Graph overview
-(format t "~A" (cl-codegraph:summary *g*))
-;; Graph: 6758 triples
-;;
-;; Symbols:
-;;   function: 245
-;;   generic-function: 3
-;; ...
-;; call edges: 744
-
-;; Rebuild in-place and see what changed
-(cl-codegraph:refresh-graph *g* :my-package :include-internal t)
-;; => (:ADDED 3 :REMOVED 1)
-```
-
-## Visualization
-
-```lisp
-;; Graphviz DOT output (pipe to dot -Tpng)
+;; Visualization
 (cl-codegraph:export-dot *g* :predicates '("cg:calls"))
+(cl-codegraph:neighborhood *g* "pkg:fn" :depth 2)
 
-;; Subgraph around a symbol (2 hops)
-(cl-codegraph:export-dot
-  (cl-codegraph:neighborhood *g* "ariadne:query" :depth 2)
-  :predicates '("cg:calls"))
-```
-
-## Change Detection
-
-```lisp
-;; Compare two separate graph snapshots
-(defparameter *before* (cl-codegraph:build-graph :pkg :include-internal t))
-;; ... edit and recompile ...
-(defparameter *after* (cl-codegraph:build-graph :pkg :include-internal t))
-
+;; Change detection
 (cl-codegraph:diff-summary *before* *after*)
-;; => (:ADDED 5 :REMOVED 2)
+(cl-codegraph:refresh-graph *g* :my-package :include-internal t)
 
-(cl-codegraph:diff-graphs *before* *after*)
-;; => (:ADDED (triples...) :REMOVED (triples...))
+;; Live monitoring (used automatically by Emacs integration)
+(cl-codegraph:monitor :my-package :include-internal t)
+(cl-codegraph:graph :my-package)  ;; always current — flushes dirty symbols
+(cl-codegraph:unmonitor :my-package)
+
+;; Multi-package
+(cl-codegraph:build-multi-graph '(:pkg-a :pkg-b))
+(cl-codegraph:build-system-graph :my-system)
+
+;; REPL
+(format t "~A" (cl-codegraph:describe-symbol *g* "pkg:fn"))
+(format t "~A" (cl-codegraph:summary *g*))
 ```
 
 ## Graph Model
@@ -118,8 +86,7 @@ Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols
 | `cg:inPackage` | Symbol → package |
 | `cg:exports` | Package → symbol |
 | `cg:internal` | "true" for non-exported symbols |
-| `cg:external` | "true" for cross-package callees |
-| `cg:calls` | Function → function it calls |
+| `cg:calls` | Function/method → function it calls |
 | `cg:calledBy` | Function → function that calls it |
 | `cg:subclassOf` | Class → superclass |
 | `cg:hasSlot` | Class → slot |
@@ -129,9 +96,11 @@ Given a package loaded in the SBCL image, builds an Ariadne graph of its symbols
 | `cg:lambdaList` | Function → parameter list string |
 | `cg:docstring` | Symbol → documentation string |
 | `cg:sourceFile` | Symbol → source file path |
+| `cg:value` | Constant/variable → current value |
 | `cg:expandsMacro` | Function → macro it expands |
-| `cg:readsVar` | Function → special variable it reads |
-| `cg:writesVar` | Function → special variable it writes |
+| `cg:readsVar` | Function → variable/constant it reads |
+| `cg:writesVar` | Function → variable it writes |
+| `cg:external` | "true" for cross-package callees |
 
 ## How It Works
 
@@ -145,8 +114,10 @@ No source parsing. All data comes from the live SBCL image:
 - **Macro usage**: `sb-introspect:who-macroexpands`
 - **Variable deps**: `sb-introspect:who-references` / `who-sets`
 - **Class structure**: MOP (`class-direct-superclasses`, `class-direct-slots`)
+- **Live updates**: `sb-int:*setf-fdefinition-hook*` + encapsulated `%defvar`/`%defparameter`/`load-defclass`
 
 ## Dependencies
 
-- [Ariadne](~/quicklisp/local-projects/ariadne/) — Graph database
+- [Ariadne](https://sr.ht/~hajovonta/ariadne/) — Graph database (in-process)
+- [Glue](https://melpa.org/#/glue) — Emacs ↔ CL transport (Slime/Sly)
 - SBCL with `sb-introspect` and `sb-pcl`

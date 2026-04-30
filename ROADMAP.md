@@ -57,7 +57,7 @@
 - [ ] DOT-rendered neighborhood graph in a dedicated buffer/window
 
 ### Code Intelligence
-- [ ] Per-method call edges — show callers/callees per GF method specialization instead of flattened
+- [x] Per-method call edges — show callers/callees per GF method specialization
 - [ ] Local variable context — show binding form, enclosing function, value expression for let/lambda/parameter bindings not in the graph
 
 ### KG-Specific Value (beyond Slime)
