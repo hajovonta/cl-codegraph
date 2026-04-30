@@ -94,9 +94,25 @@ Returns the graph."
   (graph package-designator))
 
 (defun describe-symbol-live (package-designator uri)
-  "Auto-monitor PACKAGE-DESIGNATOR if needed, then describe URI."
+  "Auto-monitor PACKAGE-DESIGNATOR if needed, then describe URI.
+Tries both exported (:) and internal (::) forms if needed."
   (ensure-monitor package-designator)
-  (describe-symbol (graph package-designator) uri))
+  (let* ((g (graph package-designator))
+         (result (describe-symbol g uri)))
+    ;; If only the name was returned (no type info), try internal form
+    (when (and g
+               (not (ariadne:get-triples g :subject uri :predicate +type+))
+               (not (search "::" uri)))
+      (let* ((colon-pos (position #\: uri))
+             (internal-uri (when colon-pos
+                             (concatenate 'string
+                                          (subseq uri 0 colon-pos)
+                                          "::"
+                                          (subseq uri (1+ colon-pos))))))
+        (when (and internal-uri
+                   (ariadne:get-triples g :subject internal-uri :predicate +type+))
+          (setf result (describe-symbol g internal-uri)))))
+    result))
 
 (defun graph (package-designator)
   "Get the live graph for PACKAGE-DESIGNATOR. Flushes dirty symbols first.
