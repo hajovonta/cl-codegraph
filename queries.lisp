@@ -263,3 +263,24 @@ showing what changed (:added N :removed M)."
                  (format s "  ~A: ~A~%" type count))
                types)
       (format s "~%call edges: ~A~%" call-count))))
+
+;;; Package hygiene
+
+(defun unused-packages (graph package-designator)
+  "Return names of packages in PACKAGE-DESIGNATOR's use-list that have no
+calls from the graphed symbols. Requires :include-external-calls graph."
+  (let* ((pkg (find-package package-designator))
+         (used-pkgs (remove (find-package :cl) (package-use-list pkg)))
+         (called-pkgs (make-hash-table :test 'equal)))
+    ;; Find all external packages that have cg:calls edges pointing to them
+    (dolist (tr (ariadne:get-triples graph :predicate +calls+))
+      (let ((callee (ariadne:triple-object tr)))
+        ;; Extract package from URI (format: "pkg:sym" or "pkg::sym")
+        (let ((colon (position #\: callee)))
+          (when colon
+            (setf (gethash (subseq callee 0 colon) called-pkgs) t)))))
+    ;; Check which used packages have no calls
+    (loop for p in used-pkgs
+          for name = (string-downcase (package-name p))
+          unless (gethash name called-pkgs)
+          collect name)))

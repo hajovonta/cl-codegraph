@@ -15,4 +15,5 @@
                              (:file "suite-multi-package")
                              (:file "suite-advanced-queries")
                              (:file "suite-incremental")
-                             (:file "suite-repl")))))
+                             (:file "suite-repl")
+                             (:file "suite-unused-imports")))))

@@ -29,6 +29,8 @@
    ;; REPL
    #:describe-symbol
    #:summary
+   ;; Package hygiene
+   #:unused-packages
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+
