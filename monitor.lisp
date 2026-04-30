@@ -21,20 +21,43 @@
 (defun definition-hook (name new-value)
   "Called by sb-int:*setf-fdefinition-hook* on every function definition."
   (declare (ignore new-value))
+  (mark-symbol-dirty name))
+
+(defun mark-symbol-dirty (name)
+  "Mark NAME as dirty in its package's monitor, if monitored."
   (when (symbolp name)
     (let* ((pkg (symbol-package name))
-           (entry (gethash pkg *monitors*)))
+           (entry (when pkg (gethash pkg *monitors*))))
       (when entry
         (setf (gethash name (monitor-entry-dirty-symbols entry)) t)))))
+
+(defvar *%defvar-sym* (find-symbol "%DEFVAR" :sb-impl))
+(defvar *%defparameter-sym* (find-symbol "%DEFPARAMETER" :sb-impl))
+(defvar *load-defclass-sym* (find-symbol "LOAD-DEFCLASS" :sb-pcl))
 
 (defun install-hook ()
   (unless *hook-installed*
     (push #'definition-hook sb-int:*setf-fdefinition-hook*)
+    (sb-int:encapsulate *%defvar-sym* 'cl-codegraph
+                        (lambda (orig &rest args)
+                          (mark-symbol-dirty (first args))
+                          (apply orig args)))
+    (sb-int:encapsulate *%defparameter-sym* 'cl-codegraph
+                        (lambda (orig &rest args)
+                          (mark-symbol-dirty (first args))
+                          (apply orig args)))
+    (sb-int:encapsulate *load-defclass-sym* 'cl-codegraph
+                        (lambda (orig &rest args)
+                          (mark-symbol-dirty (first args))
+                          (apply orig args)))
     (setf *hook-installed* t)))
 
 (defun remove-hook ()
   (setf sb-int:*setf-fdefinition-hook*
         (remove #'definition-hook sb-int:*setf-fdefinition-hook*))
+  (sb-int:unencapsulate *%defvar-sym* 'cl-codegraph)
+  (sb-int:unencapsulate *%defparameter-sym* 'cl-codegraph)
+  (sb-int:unencapsulate *load-defclass-sym* 'cl-codegraph)
   (setf *hook-installed* nil))
 
 ;;; Public API

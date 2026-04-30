@@ -17,4 +17,5 @@
                              (:file "suite-incremental")
                              (:file "suite-repl")
                              (:file "suite-unused-imports")
-                             (:file "suite-monitor")))))
+                             (:file "suite-monitor")
+                             (:file "suite-monitor-vars")))))
