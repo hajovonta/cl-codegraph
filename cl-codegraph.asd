@@ -5,4 +5,5 @@
   :serial t
   :components ((:file "package")
                (:file "codegraph")
-               (:file "queries")))
+               (:file "queries")
+               (:file "monitor")))

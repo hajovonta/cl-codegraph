@@ -31,6 +31,10 @@
    #:summary
    ;; Package hygiene
    #:unused-packages
+   ;; Live monitoring
+   #:monitor
+   #:unmonitor
+   #:graph
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+

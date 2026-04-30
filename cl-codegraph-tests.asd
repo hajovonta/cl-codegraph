@@ -16,4 +16,5 @@
                              (:file "suite-advanced-queries")
                              (:file "suite-incremental")
                              (:file "suite-repl")
-                             (:file "suite-unused-imports")))))
+                             (:file "suite-unused-imports")
+                             (:file "suite-monitor")))))
