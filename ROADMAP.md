@@ -49,7 +49,9 @@
 - [ ] Per-method call edges — show callers/callees per GF method specialization instead of flattened
 
 ### REPL Integration
-- [ ] Slime/Sly integration for "show me the graph around this symbol"
+- [x] Slime integration with live *codegraph* buffer
+- [x] Interactive navigation (RET to visit, l to go back)
+- [ ] Local variable context — show binding form, enclosing function, value expression for let/lambda/parameter bindings not in the graph
 
 ## Design Decisions
 
