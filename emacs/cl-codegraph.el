@@ -281,10 +281,20 @@ in a dedicated side buffer."
     (cl-codegraph--stop-timer)))
 
 ;;;###autoload
-(defun cl-codegraph-set-package (package)
+(defun cl-codegraph-enable-globally ()
+  "Enable cl-codegraph-mode in all Lisp buffers (current and future)."
+  (interactive)
+  (add-hook 'lisp-mode-hook #'cl-codegraph-mode)
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (derived-mode-p 'lisp-mode 'common-lisp-mode)
+        (cl-codegraph-mode 1)))))
+
+;;;###autoload
+(defun cl-codegraph-set-package (pkg)
   "Set the monitored PACKAGE for cl-codegraph queries."
   (interactive "sPackage: ")
-  (setq cl-codegraph--package (downcase package)))
+  (setq cl-codegraph--package (downcase pkg)))
 
 ;;; Interactive commands
 
