@@ -95,24 +95,48 @@ Returns the graph."
 
 (defun describe-symbol-live (package-designator uri)
   "Auto-monitor PACKAGE-DESIGNATOR if needed, then describe URI.
-Tries both exported (:) and internal (::) forms if needed."
+Tries both exported (:) and internal (::) forms if needed.
+Handles method URIs directly from the graph."
   (ensure-monitor package-designator)
-  (let* ((g (graph package-designator))
-         (result (describe-symbol g uri)))
-    ;; If only the name was returned (no type info), try internal form
-    (when (and g
-               (not (ariadne:get-triples g :subject uri :predicate +type+))
-               (not (search "::" uri)))
-      (let* ((colon-pos (position #\: uri))
-             (internal-uri (when colon-pos
-                             (concatenate 'string
-                                          (subseq uri 0 colon-pos)
-                                          "::"
-                                          (subseq uri (1+ colon-pos))))))
-        (when (and internal-uri
-                   (ariadne:get-triples g :subject internal-uri :predicate +type+))
-          (setf result (describe-symbol g internal-uri)))))
-    result))
+  (let ((g (graph package-designator)))
+    ;; Method URIs — look up directly in graph
+    (when (search "/method/" uri)
+      (return-from describe-symbol-live
+        (describe-method-node g uri)))
+    ;; Normal symbol lookup
+    (let ((result (describe-symbol g uri)))
+      ;; If only the name was returned (no type info), try internal form
+      (when (and g
+                 (not (ariadne:get-triples g :subject uri :predicate +type+))
+                 (not (search "::" uri)))
+        (let* ((colon-pos (position #\: uri))
+               (internal-uri (when colon-pos
+                               (concatenate 'string
+                                            (subseq uri 0 colon-pos)
+                                            "::"
+                                            (subseq uri (1+ colon-pos))))))
+          (when (and internal-uri
+                     (ariadne:get-triples g :subject internal-uri :predicate +type+))
+            (setf result (describe-symbol g internal-uri)))))
+      result)))
+
+(defun describe-method-node (graph uri)
+  "Describe a method node URI from the graph."
+  (with-output-to-string (s)
+    (format s "~A~%" uri)
+    (let ((specs (mapcar #'ariadne:triple-object
+                         (ariadne:get-triples graph :subject uri :predicate +specializes-on+)))
+          (calls (mapcar #'ariadne:triple-object
+                         (ariadne:get-triples graph :subject uri :predicate +calls+)))
+          (gf (mapcar #'ariadne:triple-object
+                      (ariadne:get-triples graph :subject uri :predicate +method-of+))))
+      (when gf
+        (format s "  method-of: ~A~%" (first gf)))
+      (when specs
+        (format s "  specializes: ~{~A~^, ~}~%" specs))
+      (when calls
+        (format s "  calls:~%")
+        (dolist (c calls) (format s "    ~A~%" c))))))
 
 (defun graph (package-designator)
   "Get the live graph for PACKAGE-DESIGNATOR. Flushes dirty symbols first.
