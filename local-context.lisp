@@ -10,11 +10,22 @@ Returns a plist (:kind :function :value-form) or nil if not a local variable."
          (forms (read-all-forms source))
          (defun-form (find-enclosing-defun forms line source)))
     (when defun-form
-      (let ((fn-name (string-downcase (princ-to-string (second defun-form))))
-            (lambda-list (third defun-form))
-            (body (cdddr defun-form)))
+      (let* ((fn-name (string-downcase (princ-to-string (second defun-form))))
+             (lambda-list (case (car defun-form)
+                            ((defmethod) (third defun-form))  ;; ((g graph) subject ...)
+                            (t (third defun-form))))
+             ;; For defmethod, flatten specializer pairs to get bare param names
+             (param-names (mapcar (lambda (p)
+                                    (if (listp p) (first p) p))
+                                  (remove-if (lambda (p)
+                                               (and (symbolp p)
+                                                    (char= (char (symbol-name p) 0) #\&)))
+                                             lambda-list)))
+             (body (case (car defun-form)
+                     ((defmethod) (cdddr defun-form))
+                     (t (cdddr defun-form)))))
         ;; Check lambda list
-        (when (member sym lambda-list
+        (when (member sym param-names
                       :test (lambda (s x)
                               (and (symbolp x)
                                    (string-equal (symbol-name s) (symbol-name x)))))
@@ -38,34 +49,35 @@ Returns a plist (:kind :function :value-form) or nil if not a local variable."
 
 (defun find-enclosing-defun (forms line source)
   "Find the defun/defmethod form that contains LINE."
-  (let ((line-positions (compute-line-positions source)))
+  (let ((best nil))
     (dolist (form forms)
       (when (and (listp form)
                  (member (car form) '(defun defmethod defgeneric defmacro)))
-        ;; Check if this form spans the target line
-        ;; Simple heuristic: find which defun comes before our line
-        (let ((form-line (form-start-line form source line-positions)))
+        (let ((form-line (form-start-line form source)))
           (when (and form-line (<= form-line line))
-            (return form)))))))
+            (setf best form)))))
+    best))
 
-(defun compute-line-positions (source)
-  "Return a vector mapping character positions to line numbers."
-  (let ((lines (make-array (length source) :element-type 'fixnum))
-        (line 1))
-    (dotimes (i (length source))
-      (setf (aref lines i) line)
-      (when (char= (char source i) #\Newline)
-        (incf line)))
-    lines))
-
-(defun form-start-line (form source line-positions)
-  "Find the line number where FORM starts in SOURCE. Heuristic: search for the form's name."
-  (declare (ignore line-positions))
-  (let* ((name (and (listp form) (>= (length form) 2)
-                    (princ-to-string (second form))))
-         (pos (when name (search name source :test #'char-equal))))
-    (when pos
-      (1+ (count #\Newline source :end pos)))))
+(defun form-start-line (form source)
+  "Find the line number where FORM starts in SOURCE.
+Searches for the defining form pattern to disambiguate multiple definitions."
+  (let* ((kind (string-downcase (symbol-name (car form))))
+         (name (string-downcase (princ-to-string (second form))))
+         ;; For methods, include specializer to disambiguate
+         (pattern (if (eq (car form) 'defmethod)
+                      (format nil "(~A ~A " kind name)
+                      (format nil "(~A ~A" kind name)))
+         (pos 0)
+         (last-pos nil))
+    ;; Find all occurrences, return the last one before we run out
+    (loop
+      (let ((found (search pattern source :start2 pos :test #'char-equal)))
+        (if found
+            (progn (setf last-pos found)
+                   (setf pos (1+ found)))
+            (return))))
+    (when last-pos
+      (1+ (count #\Newline source :end last-pos)))))
 
 (defun find-let-binding (sym body)
   "Search BODY for a let/let* binding of SYM. Returns the binding pair or nil."
