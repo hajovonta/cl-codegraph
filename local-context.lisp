@@ -80,18 +80,51 @@ Searches for the defining form pattern to disambiguate multiple definitions."
       (1+ (count #\Newline source :end last-pos)))))
 
 (defun find-let-binding (sym body)
-  "Search BODY for a let/let* binding of SYM. Returns the binding pair or nil."
+  "Search BODY for a binding of SYM in let/let*/dolist/dotimes/do forms. Returns the binding pair or nil."
   (dolist (form body)
     (when (listp form)
       (cond
+        ;; let / let*
         ((member (car form) '(let let*))
          (dolist (binding (second form))
            (when (listp binding)
              (when (string-equal (symbol-name sym) (symbol-name (first binding)))
                (return-from find-let-binding binding))))
-         ;; Also recurse into the let body
          (let ((result (find-let-binding sym (cddr form))))
+           (when result (return-from find-let-binding result))))
+        ;; dolist / dotimes
+        ((member (car form) '(dolist dotimes))
+         (let ((var-spec (second form)))
+           (when (and (listp var-spec)
+                      (string-equal (symbol-name sym) (symbol-name (first var-spec))))
+             (return-from find-let-binding var-spec)))
+         (let ((result (find-let-binding sym (cddr form))))
+           (when result (return-from find-let-binding result))))
+        ;; multiple-value-bind
+        ((eq (car form) 'multiple-value-bind)
+         (when (member sym (second form)
+                       :test (lambda (s x)
+                               (and (symbolp x)
+                                    (string-equal (symbol-name s) (symbol-name x)))))
+           (return-from find-let-binding (list sym (third form))))
+         (let ((result (find-let-binding sym (cdddr form))))
+           (when result (return-from find-let-binding result))))
+        ;; destructuring-bind
+        ((eq (car form) 'destructuring-bind)
+         (when (find-in-lambda-list sym (second form))
+           (return-from find-let-binding (list sym (third form))))
+         (let ((result (find-let-binding sym (cdddr form))))
            (when result (return-from find-let-binding result))))
         ;; Recurse into other forms
         (t (let ((result (find-let-binding sym (cdr form))))
              (when result (return-from find-let-binding result))))))))
+
+(defun find-in-lambda-list (sym lambda-list)
+  "Check if SYM appears in a possibly nested lambda-list."
+  (dolist (item lambda-list)
+    (cond
+      ((and (symbolp item) (string-equal (symbol-name sym) (symbol-name item)))
+       (return-from find-in-lambda-list t))
+      ((listp item)
+       (when (find-in-lambda-list sym item)
+         (return-from find-in-lambda-list t))))))
