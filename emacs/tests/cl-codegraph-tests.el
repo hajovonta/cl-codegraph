@@ -76,6 +76,32 @@
     (should (cl-codegraph--stale-p 4))
     (should-not (cl-codegraph--stale-p 5))))
 
+;;; Buffer package detection
+
+(ert-deftest cl-codegraph-test-detect-buffer-package ()
+  "Detect package from in-package form in buffer."
+  (with-temp-buffer
+    (insert "(in-package #:ariadne)\n\n(defun foo () t)")
+    (should (equal (cl-codegraph--detect-buffer-package) "ariadne"))))
+
+(ert-deftest cl-codegraph-test-detect-buffer-package-string ()
+  "Detect package from string form."
+  (with-temp-buffer
+    (insert "(in-package \"MY-PKG\")\n")
+    (should (equal (cl-codegraph--detect-buffer-package) "my-pkg"))))
+
+(ert-deftest cl-codegraph-test-detect-buffer-package-keyword ()
+  "Detect package from keyword form."
+  (with-temp-buffer
+    (insert "(in-package :my-pkg)\n")
+    (should (equal (cl-codegraph--detect-buffer-package) "my-pkg"))))
+
+(ert-deftest cl-codegraph-test-detect-buffer-package-nil ()
+  "Return nil when no in-package form found."
+  (with-temp-buffer
+    (insert "(defun foo () t)")
+    (should (null (cl-codegraph--detect-buffer-package)))))
+
 (ert-deftest cl-codegraph-test-navigation-history ()
   "Navigating to symbols builds a history stack."
   (cl-codegraph--update-view-buffer "first content" "pkg:first")

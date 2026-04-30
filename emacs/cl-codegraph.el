@@ -195,17 +195,31 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
                            (cl-codegraph--update-view-buffer result sym)
                            (cl-codegraph--ensure-view-window)))))))
 
+;;; Buffer package detection
+
+(defun cl-codegraph--detect-buffer-package ()
+  "Detect the CL package from the buffer's (in-package ...) form.
+Returns lowercase package name string, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward
+           "(in-package\\s-+\\(?:#:\\|:\\|\"\\)\\([^)\"]+\\)" nil t)
+      (downcase (match-string 1)))))
+
 ;;; Idle timer callback
 
 (defun cl-codegraph--on-idle ()
   "Called after idle delay. Query symbol at point if changed."
-  (when (and cl-codegraph-mode cl-codegraph--package)
-    (let* ((sym-raw (cl-codegraph--symbol-at-point))
-           (sym (when sym-raw
-                  (cl-codegraph--qualify-symbol sym-raw cl-codegraph--package))))
-      (when (and sym (not (equal sym cl-codegraph--last-symbol)))
-        (setq cl-codegraph--last-symbol sym)
-        (cl-codegraph--query-symbol sym)))))
+  (when cl-codegraph-mode
+    (let ((pkg (or cl-codegraph--package (cl-codegraph--detect-buffer-package))))
+      (when pkg
+        (setq cl-codegraph--package pkg)
+        (let* ((sym-raw (cl-codegraph--symbol-at-point))
+               (sym (when sym-raw
+                      (cl-codegraph--qualify-symbol sym-raw pkg))))
+          (when (and sym (not (equal sym cl-codegraph--last-symbol)))
+            (setq cl-codegraph--last-symbol sym)
+            (cl-codegraph--query-symbol sym)))))))
 
 ;;; Minor mode
 
