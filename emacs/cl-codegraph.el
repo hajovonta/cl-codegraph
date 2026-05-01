@@ -396,5 +396,134 @@ in a dedicated side buffer."
                           (format "Callees of %s:\n\n%s" sym (or result "none")))
                          (cl-codegraph--ensure-view-window))))))
 
+;;; Transient menu
+
+(require 'transient)
+
+(defun cl-codegraph--run-aggregate-query (form label)
+  "Run an aggregate FORM on the Lisp side and display result with LABEL."
+  (let ((pkg (or cl-codegraph--package
+                 (cl-codegraph--detect-buffer-package)
+                 "cl-user")))
+    (glue-send-async
+     `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
+        (if g ,form "(package not monitored)"))
+     (lambda (result)
+       (cl-codegraph--update-view-buffer
+        (format "%s\n\n%s" label (or result "nil")))
+       (cl-codegraph--ensure-view-window)))))
+
+(transient-define-prefix cl-codegraph-menu ()
+  "Codegraph aggregate queries."
+  ["Queries"
+   ("d" "Dead exports" cl-codegraph-cmd-dead-exports)
+   ("u" "Undocumented exports" cl-codegraph-cmd-undocumented)
+   ("p" "Unused packages" cl-codegraph-cmd-unused-packages)
+   ("y" "Find cycles" cl-codegraph-cmd-cycles)
+   ("c" "Call chain..." cl-codegraph-cmd-call-chain)
+   ("i" "Impact of..." cl-codegraph-cmd-impact)
+   ("D" "Diff (refresh)" cl-codegraph-cmd-diff)
+   ("s" "Summary" cl-codegraph-cmd-summary)])
+
+(defun cl-codegraph-cmd-dead-exports ()
+  "Show dead exports."
+  (interactive)
+  (cl-codegraph--run-aggregate-query
+   '(format nil "~{~A~%~}" (cl-codegraph:dead-exports g))
+   "Dead exports (never called):"))
+
+(defun cl-codegraph-cmd-undocumented ()
+  "Show undocumented exports."
+  (interactive)
+  (cl-codegraph--run-aggregate-query
+   '(format nil "~{~A~%~}" (cl-codegraph:undocumented-exports g))
+   "Undocumented exports:"))
+
+(defun cl-codegraph-cmd-unused-packages ()
+  "Show unused packages."
+  (interactive)
+  (let ((pkg (or cl-codegraph--package
+                 (cl-codegraph--detect-buffer-package)
+                 "cl-user")))
+    (glue-send-async
+     `(let ((g (cl-codegraph:ensure-monitor ,(intern (concat ":" pkg)))))
+        (if g
+            (format nil "~{~A~%~}" (cl-codegraph:unused-packages g ,(intern (concat ":" pkg))))
+            "(package not monitored)"))
+     (lambda (result)
+       (cl-codegraph--update-view-buffer
+        (format "Unused packages in use-list:\n\n%s" (or result "nil")))
+       (cl-codegraph--ensure-view-window)))))
+
+(defun cl-codegraph-cmd-cycles ()
+  "Show call cycles."
+  (interactive)
+  (cl-codegraph--run-aggregate-query
+   '(let ((cycles (cl-codegraph:find-cycles g)))
+      (if cycles
+          (format nil "~{~{~A~^ → ~}~%~}" cycles)
+          "No cycles found."))
+   "Circular call dependencies:"))
+
+(defun cl-codegraph-cmd-call-chain ()
+  "Prompt for target and show call chain from symbol at point."
+  (interactive)
+  (let* ((from (or cl-codegraph--last-symbol
+                   (cl-codegraph--qualify-symbol
+                    (or (cl-codegraph--symbol-at-point) "")
+                    (or cl-codegraph--package "cl-user"))))
+         (to (read-string (format "Call chain from %s to: " from)))
+         (pkg (or cl-codegraph--package "cl-user"))
+         (qualified-to (cl-codegraph--qualify-symbol to pkg)))
+    (glue-send-async
+     `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
+        (if g
+            (let ((chain (cl-codegraph:call-chain g ,from ,qualified-to)))
+              (if chain
+                  (format nil "~{~A~%  ↓~%~}~A" (butlast chain) (car (last chain)))
+                  (format nil "No path found from ~A to ~A" ,from ,qualified-to)))
+            "(package not monitored)"))
+     (lambda (result)
+       (cl-codegraph--update-view-buffer
+        (format "Call chain:\n\n%s" (or result "nil")))
+       (cl-codegraph--ensure-view-window)))))
+
+(defun cl-codegraph-cmd-impact ()
+  "Show impact of symbol at point."
+  (interactive)
+  (let ((sym (or cl-codegraph--last-symbol "")))
+    (cl-codegraph--run-aggregate-query
+     `(let ((impact (cl-codegraph:impact-of g ,sym)))
+        (if impact
+            (format nil "~A symbols affected:~%~{  ~A~%~}" (length impact) impact)
+            "No dependents found."))
+     (format "Impact of %s:" sym))))
+
+(defun cl-codegraph-cmd-diff ()
+  "Refresh graph and show what changed."
+  (interactive)
+  (let ((pkg (or cl-codegraph--package "cl-user")))
+    (glue-send-async
+     `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
+        (if g
+            (let ((diff (cl-codegraph:refresh-graph g ,(intern (concat ":" pkg))
+                                                    :include-internal t)))
+              (format nil "Added: ~A~%Removed: ~A" (getf diff :added) (getf diff :removed)))
+            "(package not monitored)"))
+     (lambda (result)
+       (cl-codegraph--update-view-buffer
+        (format "Diff (changes since last build):\n\n%s" (or result "nil")))
+       (cl-codegraph--ensure-view-window)))))
+
+(defun cl-codegraph-cmd-summary ()
+  "Show graph summary."
+  (interactive)
+  (cl-codegraph--run-aggregate-query
+   '(cl-codegraph:summary g)
+   "Graph summary:"))
+
+;; Bind menu to ? in codegraph view
+(define-key cl-codegraph-view-mode-map (kbd "?") #'cl-codegraph-menu)
+
 (provide 'cl-codegraph)
 ;;; cl-codegraph.el ends here
