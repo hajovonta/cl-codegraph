@@ -140,7 +140,7 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
 
 (defun cl-codegraph--jump-to-definition (sym)
   "Jump to SYM's definition in the source window.
-Bypasses slime-xref popup by killing it if it appears."
+Suppresses slime-xref popup by temporarily advising slime-show-xref-buffer."
   (let* ((jump-sym (if (string-match "/method/" sym)
                        (substring sym 0 (string-match "/method/" sym))
                      sym))
@@ -148,18 +148,12 @@ Bypasses slime-xref popup by killing it if it appears."
          (source-window (cl-codegraph--find-source-window)))
     (when source-window
       (with-selected-window source-window
-        (condition-case nil
-            (slime-edit-definition name)
-          (error nil)))
-      ;; Kill xref buffer if it popped up, restore window config
-      (let ((xref-win (get-buffer-window "*slime-xref*")))
-        (when xref-win
-          (delete-window xref-win)))
-      ;; Make sure source window is still selected
-      (let ((sw (cl-codegraph--find-source-window)))
-        (when sw
-          (with-selected-window sw
-            (cl-codegraph--position-on-symbol jump-sym)))))))
+        (cl-letf (((symbol-function 'slime-show-xref-buffer)
+                   (lambda (&rest _) nil)))
+          (condition-case nil
+              (slime-edit-definition name)
+            (error nil)))
+        (cl-codegraph--position-on-symbol jump-sym)))))
 
 (defun cl-codegraph--ensure-double-colon (sym)
   "Ensure SYM uses :: (works for both exported and internal in Slime)."
