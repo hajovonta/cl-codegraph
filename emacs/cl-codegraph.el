@@ -149,7 +149,7 @@ Always jumps to the first definition found, no xref popup."
         (let ((xrefs (slime-find-definitions name)))
           (when xrefs
             (slime-push-definition-stack)
-            (slime-pop-to-location (slime-xref.location (car xrefs)) 'window))
+            (slime-pop-to-location (slime-xref.location (car xrefs)) nil))
           (cl-codegraph--position-on-symbol jump-sym))))))
 
 (defun cl-codegraph--ensure-double-colon (sym)
