@@ -338,35 +338,3 @@ calls from the graphed symbols. Requires :include-external-calls graph."
           for name = (string-downcase (package-name p))
           unless (gethash name called-pkgs)
           collect name)))
-
-;;; Web viewer
-
-(defvar *viewer-graph* nil "Graph currently being served.")
-
-(defun start-viewer (package-designator &key predicates (port 8090) include-internal)
-  "Start Ariadne's web graph explorer showing the codegraph for PACKAGE-DESIGNATOR.
-If PREDICATES is given, only include those edge types.
-Returns the URL to open in a browser."
-  (let* ((g (build-graph package-designator :include-internal (or include-internal t)))
-         (view-graph (if predicates
-                         (filter-graph g predicates)
-                         g)))
-    (setf *viewer-graph* view-graph)
-    (ariadne:start-web-server view-graph :port port)
-    (format nil "http://localhost:~A" port)))
-
-(defun stop-viewer ()
-  "Stop the web graph explorer."
-  (ariadne:stop-web-server)
-  (setf *viewer-graph* nil))
-
-(defun filter-graph (source predicates)
-  "Create a new graph containing only triples with predicates in PREDICATES."
-  (let ((g (ariadne:make-graph :name "codegraph/filtered")))
-    (dolist (pred predicates)
-      (dolist (tr (ariadne:get-triples source :predicate pred))
-        (ariadne:add-triple g
-                            (ariadne:triple-subject tr)
-                            (ariadne:triple-predicate tr)
-                            (ariadne:triple-object tr))))
-    g))
