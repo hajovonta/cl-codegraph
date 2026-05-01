@@ -466,22 +466,21 @@ in a dedicated side buffer."
    "Circular call dependencies:"))
 
 (defun cl-codegraph-cmd-call-chain ()
-  "Prompt for target and show call chain from symbol at point."
+  "Prompt for from and to, show call chain."
   (interactive)
-  (let* ((from (or cl-codegraph--last-symbol
-                   (cl-codegraph--qualify-symbol
-                    (or (cl-codegraph--symbol-at-point) "")
-                    (or cl-codegraph--package "cl-user"))))
-         (to (read-string (format "Call chain from %s to: " from)))
-         (pkg (or cl-codegraph--package "cl-user"))
+  (let* ((pkg (or cl-codegraph--package "cl-user"))
+         (default-from (or cl-codegraph--last-symbol ""))
+         (from (read-string (format "Call chain from [%s]: " default-from) nil nil default-from))
+         (to (read-string (format "Call chain to: ")))
+         (qualified-from (cl-codegraph--qualify-symbol from pkg))
          (qualified-to (cl-codegraph--qualify-symbol to pkg)))
     (glue-send-async
      `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
         (if g
-            (let ((chain (cl-codegraph:call-chain g ,from ,qualified-to)))
+            (let ((chain (cl-codegraph:call-chain g ,qualified-from ,qualified-to)))
               (if chain
                   (format nil "~{~A~%  ↓~%~}~A" (butlast chain) (car (last chain)))
-                  (format nil "No path found from ~A to ~A" ,from ,qualified-to)))
+                  (format nil "No path found from ~A to ~A" ,qualified-from ,qualified-to)))
             "(package not monitored)"))
      (lambda (result)
        (cl-codegraph--update-view-buffer
