@@ -51,7 +51,7 @@
 
 ### Emacs UI
 - [x] Transient menu in *codegraph* buffer for aggregate queries
-- [ ] Completion for call-chain/impact prompts (from graph symbols)
+- [x] Completion for call-chain/impact prompts (bare names, qualified when ambiguous)
 
 ### Visualization
 - [ ] Ariadne Graph Explorer integration: push focus node from CL side, browser updates live (requires Ariadne-side SSE/WebSocket support)
