@@ -54,7 +54,7 @@
 - [ ] Completion for call-chain/impact prompts (from graph symbols)
 
 ### Visualization
-- [ ] Interactive web-based graph viewer via Ariadne's Cytoscape.js (browse call graphs, filter by edge type, click to explore)
+- [ ] Ariadne Graph Explorer integration: push focus node from CL side, browser updates live (requires Ariadne-side SSE/WebSocket support)
 
 ### Code Intelligence
 - [x] Per-method call edges — show callers/callees per GF method specialization
