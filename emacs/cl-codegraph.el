@@ -419,7 +419,8 @@ in a dedicated side buffer."
   "Cached list of graph symbol names for completion.")
 
 (defun cl-codegraph--read-graph-symbol (prompt &optional default)
-  "Read a symbol name with completion from the graph. Uses cached symbols."
+  "Read a symbol name with completion from the graph.
+Shows bare names when unambiguous, qualified when the same name exists in multiple packages."
   (unless cl-codegraph--symbol-cache
     (let ((pkg (or cl-codegraph--package
                    (cl-codegraph--detect-buffer-package)
@@ -430,7 +431,29 @@ in a dedicated side buffer."
                 (when g
                   (mapcar #'ariadne:triple-subject
                           (ariadne:get-triples g :predicate "rdf:type"))))))))
-  (completing-read prompt cl-codegraph--symbol-cache nil nil default))
+  (let* ((bare-to-full (make-hash-table :test 'equal))
+         candidates)
+    ;; Group by bare name
+    (dolist (full cl-codegraph--symbol-cache)
+      (let ((bare (if (string-match ".*::?\\(.+\\)" full)
+                      (match-string 1 full)
+                    full)))
+        (push full (gethash bare bare-to-full))))
+    ;; Build candidates: bare if unique, qualified if ambiguous
+    (maphash (lambda (bare fulls)
+               (if (= 1 (length fulls))
+                   (push (cons bare (car fulls)) candidates)
+                 (dolist (full fulls)
+                   (push (cons full full) candidates))))
+             bare-to-full)
+    (let* ((bare-default (when default
+                           (if (string-match ".*::?\\(.+\\)" default)
+                               (match-string 1 default)
+                             default)))
+           (chosen (completing-read prompt (mapcar #'car candidates) nil nil bare-default)))
+      ;; Return the full qualified name
+      (or (cdr (assoc chosen candidates))
+          (cl-codegraph--qualify-symbol chosen (or cl-codegraph--package "cl-user"))))))
 
 (defun cl-codegraph-invalidate-cache ()
   "Clear the symbol completion cache (call after rebuilding graph)."
