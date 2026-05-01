@@ -93,19 +93,19 @@
       (let ((uri (symbol-uri sym))
             (kind (classify-symbol sym))
             (externalp (member sym exported-symbols)))
-        (ariadne:add-triple graph uri +type+ (string-downcase (symbol-name kind)))
-        (ariadne:add-triple graph uri +in-package+ pkg-uri)
-        (when externalp
-          (ariadne:add-triple graph pkg-uri +exports+ uri))
-        (when (and include-internal (not externalp))
-          (ariadne:add-triple graph uri "cg:internal" "true"))
-        (case kind
-          (:class (index-class graph sym uri))
-          (:generic-function (index-generic graph sym uri)))
-        ;; Metadata
-        (index-metadata graph sym uri kind)
-        ;; Macro/variable dependencies
-        (index-macro-var-deps graph sym uri kind all-symbols)))
+        ;; Skip :other symbols unless exported (they're just interned names)
+        (when (or (not (eq kind :other)) externalp)
+          (ariadne:add-triple graph uri +type+ (string-downcase (symbol-name kind)))
+          (ariadne:add-triple graph uri +in-package+ pkg-uri)
+          (when externalp
+            (ariadne:add-triple graph pkg-uri +exports+ uri))
+          (when (and include-internal (not externalp))
+            (ariadne:add-triple graph uri "cg:internal" "true"))
+          (case kind
+            (:class (index-class graph sym uri))
+            (:generic-function (index-generic graph sym uri)))
+          (index-metadata graph sym uri kind)
+          (index-macro-var-deps graph sym uri kind all-symbols))))
     ;; Call relationships
     (index-call-graph graph all-symbols pkg include-external-calls)))
 
@@ -327,17 +327,18 @@ the listed packages are automatically captured."
                 (let ((uri (symbol-uri sym))
                       (kind (classify-symbol sym))
                       (externalp (eq (nth-value 1 (find-symbol (symbol-name sym) pkg)) :external)))
-                  (ariadne:add-triple g uri +type+ (string-downcase (symbol-name kind)))
-                  (ariadne:add-triple g uri +in-package+ pkg-uri)
-                  (when externalp
-                    (ariadne:add-triple g pkg-uri +exports+ uri))
-                  (when (and include-internal (not externalp))
-                    (ariadne:add-triple g uri "cg:internal" "true"))
-                  (case kind
-                    (:class (index-class g sym uri))
-                    (:generic-function (index-generic g sym uri)))
-                  (index-metadata g sym uri kind)
-                  (index-macro-var-deps g sym uri kind all-syms))))))))
+                  (when (or (not (eq kind :other)) externalp)
+                    (ariadne:add-triple g uri +type+ (string-downcase (symbol-name kind)))
+                    (ariadne:add-triple g uri +in-package+ pkg-uri)
+                    (when externalp
+                      (ariadne:add-triple g pkg-uri +exports+ uri))
+                    (when (and include-internal (not externalp))
+                      (ariadne:add-triple g uri "cg:internal" "true"))
+                    (case kind
+                      (:class (index-class g sym uri))
+                      (:generic-function (index-generic g sym uri)))
+                    (index-metadata g sym uri kind)
+                    (index-macro-var-deps g sym uri kind all-syms)))))))))
     ;; Call graph across all symbols
     (index-call-graph g all-syms (find-package (first package-designators)) nil)
     g))
