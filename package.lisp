@@ -33,6 +33,9 @@
    #:unused-packages
    ;; Local context
    #:local-context
+   ;; Web viewer
+   #:start-viewer
+   #:stop-viewer
    ;; Live monitoring
    #:monitor
    #:unmonitor
