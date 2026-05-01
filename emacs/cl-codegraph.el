@@ -137,7 +137,8 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
     (cl-codegraph--jump-to-definition sym)))
 
 (defun cl-codegraph--jump-to-definition (sym)
-  "Jump to SYM's definition in the source window."
+  "Jump to SYM's definition in the source window.
+Always jumps to the first definition found, no xref popup."
   (let* ((jump-sym (if (string-match "/method/" sym)
                        (substring sym 0 (string-match "/method/" sym))
                      sym))
@@ -145,10 +146,11 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
          (source-window (cl-codegraph--find-source-window)))
     (when source-window
       (with-selected-window source-window
-        (cl-letf (((symbol-function 'slime-show-xref-buffer)
-                   (lambda (&rest _) nil)))
-          (ignore-errors (slime-edit-definition name)))
-        (cl-codegraph--position-on-symbol jump-sym)))))
+        (let ((xrefs (slime-find-definitions name)))
+          (when xrefs
+            (slime-push-definition-stack)
+            (slime-pop-to-location (slime-xref.location (car xrefs)) 'window))
+          (cl-codegraph--position-on-symbol jump-sym))))))
 
 (defun cl-codegraph--ensure-double-colon (sym)
   "Ensure SYM uses :: (works for both exported and internal in Slime)."
