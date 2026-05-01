@@ -14,5 +14,9 @@
   (should (eq (lookup-key cl-codegraph-view-mode-map (kbd "?"))
               'cl-codegraph-menu)))
 
+(ert-deftest cl-codegraph-test-read-symbol-function-exists ()
+  "cl-codegraph--read-graph-symbol is defined."
+  (should (fboundp 'cl-codegraph--read-graph-symbol)))
+
 (provide 'cl-codegraph-transient-tests)
 ;;; cl-codegraph-transient-tests.el ends here

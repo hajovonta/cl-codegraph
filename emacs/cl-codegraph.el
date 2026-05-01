@@ -415,6 +415,28 @@ in a dedicated side buffer."
 
 (require 'transient)
 
+(defvar cl-codegraph--symbol-cache nil
+  "Cached list of graph symbol names for completion.")
+
+(defun cl-codegraph--read-graph-symbol (prompt &optional default)
+  "Read a symbol name with completion from the graph. Uses cached symbols."
+  (unless cl-codegraph--symbol-cache
+    (let ((pkg (or cl-codegraph--package
+                   (cl-codegraph--detect-buffer-package)
+                   "cl-user")))
+      (setq cl-codegraph--symbol-cache
+            (glue-send-sync
+             `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
+                (when g
+                  (mapcar #'ariadne:triple-subject
+                          (ariadne:get-triples g :predicate "rdf:type"))))))))
+  (completing-read prompt cl-codegraph--symbol-cache nil nil default))
+
+(defun cl-codegraph-invalidate-cache ()
+  "Clear the symbol completion cache (call after rebuilding graph)."
+  (interactive)
+  (setq cl-codegraph--symbol-cache nil))
+
 (defun cl-codegraph--run-aggregate-query (form label)
   "Run an aggregate FORM on the Lisp side and display result with LABEL."
   (let ((pkg (or cl-codegraph--package
@@ -481,21 +503,20 @@ in a dedicated side buffer."
    "Circular call dependencies:"))
 
 (defun cl-codegraph-cmd-call-chain ()
-  "Prompt for from and to, show call chain."
+  "Prompt for from and to with completion, show call chain."
   (interactive)
   (let* ((pkg (or cl-codegraph--package "cl-user"))
          (default-from (or cl-codegraph--current-symbol ""))
-         (from (read-string (format "Call chain from [%s]: " default-from) nil nil default-from))
-         (to (read-string (format "Call chain to: ")))
-         (qualified-from (cl-codegraph--qualify-symbol from pkg))
-         (qualified-to (cl-codegraph--qualify-symbol to pkg)))
+         (from (cl-codegraph--read-graph-symbol
+                (format "Call chain from [%s]: " default-from) default-from))
+         (to (cl-codegraph--read-graph-symbol "Call chain to: ")))
     (glue-send-async
      `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
         (if g
-            (let ((chain (cl-codegraph:call-chain g ,qualified-from ,qualified-to)))
+            (let ((chain (cl-codegraph:call-chain g ,from ,to)))
               (if chain
                   (format nil "~{~A~%  ↓~%~}~A" (butlast chain) (car (last chain)))
-                  (format nil "No path found from ~A to ~A" ,qualified-from ,qualified-to)))
+                  (format nil "No path found from ~A to ~A" ,from ,to)))
             "(package not monitored)"))
      (lambda (result)
        (cl-codegraph--update-view-buffer
