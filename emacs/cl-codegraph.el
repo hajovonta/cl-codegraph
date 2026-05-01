@@ -469,7 +469,7 @@ in a dedicated side buffer."
   "Prompt for from and to, show call chain."
   (interactive)
   (let* ((pkg (or cl-codegraph--package "cl-user"))
-         (default-from (or cl-codegraph--last-symbol ""))
+         (default-from (or cl-codegraph--current-symbol ""))
          (from (read-string (format "Call chain from [%s]: " default-from) nil nil default-from))
          (to (read-string (format "Call chain to: ")))
          (qualified-from (cl-codegraph--qualify-symbol from pkg))
@@ -490,7 +490,7 @@ in a dedicated side buffer."
 (defun cl-codegraph-cmd-impact ()
   "Show impact of symbol at point."
   (interactive)
-  (let ((sym (or cl-codegraph--last-symbol "")))
+  (let ((sym (or cl-codegraph--current-symbol "")))
     (cl-codegraph--run-aggregate-query
      `(let ((impact (cl-codegraph:impact-of g ,sym)))
         (if impact
