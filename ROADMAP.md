@@ -50,13 +50,8 @@
 ## Next
 
 ### Emacs UI
-- [ ] Transient menu in *codegraph* buffer for aggregate queries:
-  - call-chain (prompt for target, show path)
-  - impact-of (what breaks if I change this?)
-  - find-cycles (show circular dependencies)
-  - dead-exports / undocumented-exports
-  - unused-packages
-  - diff-summary (what changed since last build?)
+- [x] Transient menu in *codegraph* buffer for aggregate queries
+- [ ] Completion for call-chain/impact prompts (from graph symbols)
 
 ### Visualization
 - [ ] Interactive web-based graph viewer via Ariadne's Cytoscape.js (browse call graphs, filter by edge type, click to explore)
