@@ -29,6 +29,10 @@ The `*codegraph*` buffer is a live code intelligence panel:
 - **Navigable** — RET on a caller/callee jumps to its source AND updates the view
 - **History** — `l` goes back (browser-style), `q` closes
 - **Per-method** — GFs show each method's specializers and individual callees
+- **Classes** — shows superclasses, subclasses, slots, specializing methods
+- **Local variables** — falls back to source walking for let/dolist/dotimes bindings
+- **Transient menu** — `?` for aggregate queries (dead exports, cycles, impact, call-chain, etc.)
+- **Smart completion** — bare names when unique, qualified when ambiguous
 
 ### Keybindings in `*codegraph*`
 
@@ -36,6 +40,7 @@ The `*codegraph*` buffer is a live code intelligence panel:
 |-----|--------|
 | RET | Visit symbol: jump to source + update view |
 | l | Go back in history |
+| ? | Transient menu (aggregate queries) |
 | q | Close window |
 
 ## Programmatic API
