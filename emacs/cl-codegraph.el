@@ -165,7 +165,7 @@ For method URIs, tries to match the specific defmethod."
   (let ((first-spec (car (split-string method-specs "/"))))
     (cl-loop for xref in xrefs
              when (and (string-match "defmethod" (downcase (slime-xref.dspec xref)))
-                       (string-match (concat "::?" (regexp-quote first-spec) "[ )]")
+                       (string-match (concat "[ :]" (regexp-quote first-spec) "[ )]")
                                      (downcase (slime-xref.dspec xref))))
              return xref)))
 
