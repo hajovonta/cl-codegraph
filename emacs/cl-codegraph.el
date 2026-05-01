@@ -134,26 +134,51 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
   "Navigate to the symbol associated with BUTTON: jump to source and update codegraph."
   (let ((sym (button-get button 'cl-codegraph-symbol)))
     (cl-codegraph--navigate-to sym)
-    ;; Don't jump for method URIs — they're internal graph identifiers
-    (unless (string-match "/method/" sym)
-      (cl-codegraph--jump-to-definition sym))))
+    (cl-codegraph--jump-to-definition sym)))
 
 (defun cl-codegraph--jump-to-definition (sym)
   "Jump to SYM's definition in the source window.
-Suppresses slime-xref popup by temporarily advising slime-show-xref-buffer."
-  (let* ((jump-sym (if (string-match "/method/" sym)
-                       (substring sym 0 (string-match "/method/" sym))
+For method URIs, attempts to jump to the specific defmethod."
+  (let* ((is-method (string-match "/method/" sym))
+         (jump-sym (if is-method
+                       (substring sym 0 (match-beginning 0))
                      sym))
+         (method-specs (when is-method
+                         (substring sym (match-end 0))))
          (name (upcase (cl-codegraph--ensure-double-colon jump-sym)))
          (source-window (cl-codegraph--find-source-window)))
     (when source-window
       (with-selected-window source-window
         (cl-letf (((symbol-function 'slime-show-xref-buffer)
+                   (lambda (&rest _) nil))
+                  ((symbol-function 'slime-pop-to-location)
                    (lambda (&rest _) nil)))
-          (condition-case nil
-              (slime-edit-definition name)
-            (error nil)))
+          ;; Get all definitions without jumping
+          (let ((defs (slime-eval `(swank:find-definitions-for-emacs ,name))))
+            (when defs
+              (let ((target (if method-specs
+                               (or (cl-codegraph--match-method-def defs method-specs)
+                                   (car defs))
+                             (car defs))))
+                (when target
+                  (slime-goto-source-location (cadr target)))))))
         (cl-codegraph--position-on-symbol jump-sym)))))
+
+(defun cl-codegraph--match-method-def (defs method-specs)
+  "Find the definition in DEFS matching METHOD-SPECS (e.g. \"graph/t/t\")."
+  (let ((specs (split-string method-specs "/")))
+    (cl-loop for def in defs
+             when (and (string-match "defmethod" (downcase (car def)))
+                       (cl-codegraph--specs-match-p (car def) specs))
+             return def)))
+
+(defun cl-codegraph--specs-match-p (def-label specs)
+  "Check if DEF-LABEL contains all SPECS as specializer names."
+  (let ((label (downcase def-label)))
+    (cl-every (lambda (spec)
+                (or (string= spec "t")
+                    (string-match (regexp-quote spec) label)))
+              specs)))
 
 (defun cl-codegraph--ensure-double-colon (sym)
   "Ensure SYM uses :: (works for both exported and internal in Slime)."
