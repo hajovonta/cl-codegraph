@@ -138,10 +138,14 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
 
 (defun cl-codegraph--jump-to-definition (sym)
   "Jump to SYM's definition in the source window.
-Always jumps to the first definition found, no xref popup."
-  (let* ((jump-sym (if (string-match "/method/" sym)
-                       (substring sym 0 (string-match "/method/" sym))
+Always jumps to the first definition found, no xref popup.
+For method URIs, tries to match the specific defmethod."
+  (let* ((is-method (string-match "/method/" sym))
+         (jump-sym (if is-method
+                       (substring sym 0 (match-beginning 0))
                      sym))
+         (method-specs (when is-method
+                         (downcase (substring sym (match-end 0)))))
          (name (upcase (cl-codegraph--ensure-double-colon jump-sym)))
          (source-window (cl-codegraph--find-source-window)))
     (when source-window
@@ -149,8 +153,21 @@ Always jumps to the first definition found, no xref popup."
         (let ((xrefs (slime-find-definitions name)))
           (when xrefs
             (slime-push-definition-stack)
-            (slime-pop-to-location (slime-xref.location (car xrefs)) nil))
+            (let ((target (if method-specs
+                              (or (cl-codegraph--find-method-xref xrefs method-specs)
+                                  (car xrefs))
+                            (car xrefs))))
+              (slime-pop-to-location (slime-xref.location target) nil)))
           (cl-codegraph--position-on-symbol jump-sym))))))
+
+(defun cl-codegraph--find-method-xref (xrefs method-specs)
+  "Find the xref in XREFS whose label matches METHOD-SPECS (e.g. \"graph/t\")."
+  (let ((first-spec (car (split-string method-specs "/"))))
+    (cl-loop for xref in xrefs
+             when (and (string-match "defmethod" (downcase (slime-xref.dspec xref)))
+                       (string-match (regexp-quote first-spec)
+                                     (downcase (slime-xref.dspec xref))))
+             return xref)))
 
 (defun cl-codegraph--ensure-double-colon (sym)
   "Ensure SYM uses :: (works for both exported and internal in Slime)."
