@@ -414,48 +414,47 @@ in a dedicated side buffer."
 
 (require 'transient)
 
-(defvar cl-codegraph--symbol-cache nil
-  "Cached list of graph symbol names for completion.")
+(defvar cl-codegraph--symbol-cache (make-hash-table :test 'equal)
+  "Cache of graph symbol names per package, keyed by package name.")
+
+(defun cl-codegraph-invalidate-cache ()
+  "Clear the symbol completion cache."
+  (interactive)
+  (clrhash cl-codegraph--symbol-cache))
 
 (defun cl-codegraph--read-graph-symbol (prompt &optional default)
   "Read a symbol name with completion from the graph.
 Shows bare names when unambiguous, qualified when the same name exists in multiple packages."
-  (unless cl-codegraph--symbol-cache
-    (let ((pkg (cl-codegraph--current-package)))
-      (setq cl-codegraph--symbol-cache
+  (let* ((pkg (cl-codegraph--current-package))
+         (cached (gethash pkg cl-codegraph--symbol-cache)))
+    (unless cached
+      (setq cached
             (glue-send-sync
              `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
                 (when g
                   (mapcar #'ariadne:triple-subject
-                          (ariadne:get-triples g :predicate "rdf:type"))))))))
-  (let* ((bare-to-full (make-hash-table :test 'equal))
-         candidates)
-    ;; Group by bare name
-    (dolist (full cl-codegraph--symbol-cache)
-      (let ((bare (if (string-match ".*::?\\(.+\\)" full)
-                      (match-string 1 full)
-                    full)))
-        (push full (gethash bare bare-to-full))))
-    ;; Build candidates: bare if unique, qualified if ambiguous
-    (maphash (lambda (bare fulls)
-               (if (= 1 (length fulls))
-                   (push (cons bare (car fulls)) candidates)
-                 (dolist (full fulls)
-                   (push (cons full full) candidates))))
-             bare-to-full)
-    (let* ((bare-default (when default
-                           (if (string-match ".*::?\\(.+\\)" default)
-                               (match-string 1 default)
-                             default)))
-           (chosen (completing-read prompt (mapcar #'car candidates) nil nil bare-default)))
-      ;; Return the full qualified name
-      (or (cdr (assoc chosen candidates))
-          (cl-codegraph--qualify-symbol chosen (or cl-codegraph--package "cl-user"))))))
-
-(defun cl-codegraph-invalidate-cache ()
-  "Clear the symbol completion cache (call after rebuilding graph)."
-  (interactive)
-  (setq cl-codegraph--symbol-cache nil))
+                          (ariadne:get-triples g :predicate "rdf:type"))))))
+      (puthash pkg cached cl-codegraph--symbol-cache))
+    (let* ((bare-to-full (make-hash-table :test 'equal))
+           candidates)
+      (dolist (full cached)
+        (let ((bare (if (string-match ".*::?\\(.+\\)" full)
+                        (match-string 1 full)
+                      full)))
+          (push full (gethash bare bare-to-full))))
+      (maphash (lambda (bare fulls)
+                 (if (= 1 (length fulls))
+                     (push (cons bare (car fulls)) candidates)
+                   (dolist (full fulls)
+                     (push (cons full full) candidates))))
+               bare-to-full)
+      (let* ((bare-default (when default
+                             (if (string-match ".*::?\\(.+\\)" default)
+                                 (match-string 1 default)
+                               default)))
+             (chosen (completing-read prompt (mapcar #'car candidates) nil nil bare-default)))
+        (or (cdr (assoc chosen candidates))
+            (cl-codegraph--qualify-symbol chosen pkg))))))
 
 (defun cl-codegraph--current-package ()
   "Get the current package for queries, trying multiple sources."
