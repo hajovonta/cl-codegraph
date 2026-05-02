@@ -433,7 +433,8 @@ in a dedicated side buffer."
 (defun cl-codegraph--read-graph-symbol (prompt &optional default)
   "Read a symbol name with completion from the graph.
 Shows bare names when unambiguous, qualified when the same name exists in multiple packages."
-  (let* ((pkg (cl-codegraph--current-package))
+  (let* ((pkg (or cl-codegraph--last-known-package
+                  (cl-codegraph--current-package)))
          (cached (gethash pkg cl-codegraph--symbol-cache)))
     (unless cached
       (setq cached
