@@ -421,9 +421,7 @@ in a dedicated side buffer."
   "Read a symbol name with completion from the graph.
 Shows bare names when unambiguous, qualified when the same name exists in multiple packages."
   (unless cl-codegraph--symbol-cache
-    (let ((pkg (or cl-codegraph--package
-                   (cl-codegraph--detect-buffer-package)
-                   "cl-user")))
+    (let ((pkg (cl-codegraph--current-package)))
       (setq cl-codegraph--symbol-cache
             (glue-send-sync
              `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
