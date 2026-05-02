@@ -548,7 +548,7 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
 (defun cl-codegraph-cmd-impact ()
   "Show impact of symbol at point."
   (interactive)
-  (let ((sym (or cl-codegraph--current-symbol "")))
+  (let ((sym (or (cl-codegraph--displayed-symbol) cl-codegraph--current-symbol "")))
     (cl-codegraph--run-aggregate-query
      `(let* ((uri (cl-codegraph::resolve-uri g ,sym))
              (impact (cl-codegraph:impact-of g uri)))
@@ -556,6 +556,19 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
             (format nil "~A symbols affected:~%~{  ~A~%~}" (length impact) impact)
             "No dependents found."))
      (format "Impact of %s:" sym))))
+
+(defun cl-codegraph--displayed-symbol ()
+  "Get the symbol currently displayed on the first line of *codegraph* buffer."
+  (let ((buf (get-buffer cl-codegraph-buffer-name)))
+    (when buf
+      (with-current-buffer buf
+        (save-excursion
+          (goto-char (point-min))
+          (let ((line (buffer-substring-no-properties
+                       (line-beginning-position) (line-end-position))))
+            (when (and (> (length line) 0)
+                       (not (string-prefix-p " " line)))
+              line)))))))
 
 (defun cl-codegraph-cmd-diff ()
   "Refresh graph and show what changed."
