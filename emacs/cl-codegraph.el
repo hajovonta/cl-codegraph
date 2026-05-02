@@ -535,16 +535,17 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
   "Prompt for from and to with completion, show call chain."
   (interactive)
   (let* ((displayed (cl-codegraph--displayed-symbol))
-         (pkg (or (when displayed
-                    (and (string-match "\\(.+?\\)::?" displayed)
-                         (match-string 1 displayed)))
-                  cl-codegraph--package "cl-user"))
+         (pkg (cl-codegraph--current-package))
          (default-from (or displayed cl-codegraph--current-symbol ""))
          (from (cl-codegraph--read-graph-symbol
                 (format "Call chain from [%s]: " default-from) default-from))
-         (to (cl-codegraph--read-graph-symbol "Call chain to: ")))
+         (to (cl-codegraph--read-graph-symbol "Call chain to: "))
+         ;; Extract package from the 'from' symbol for the graph lookup
+         (query-pkg (if (string-match "\\(.+?\\)::?" from)
+                        (match-string 1 from)
+                      pkg)))
     (glue-send-async
-     `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
+     `(let ((g (cl-codegraph:graph ,(intern (concat ":" query-pkg)))))
         (if g
             (let ((chain (cl-codegraph:call-chain g ,from ,to)))
               (if chain
