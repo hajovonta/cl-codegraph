@@ -550,7 +550,8 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
   (interactive)
   (let ((sym (or cl-codegraph--current-symbol "")))
     (cl-codegraph--run-aggregate-query
-     `(let ((impact (cl-codegraph:impact-of g ,sym)))
+     `(let* ((uri (cl-codegraph::resolve-uri g ,sym))
+             (impact (cl-codegraph:impact-of g uri)))
         (if impact
             (format nil "~A symbols affected:~%~{  ~A~%~}" (length impact) impact)
             "No dependents found."))

@@ -341,3 +341,19 @@ calls from the graphed symbols. Requires :include-external-calls graph."
           for name = (string-downcase (package-name p))
           unless (gethash name called-pkgs)
           collect name)))
+
+;;; URI resolution
+
+(defun resolve-uri (graph uri)
+  "Resolve URI in GRAPH, trying :: form if single : doesn't match."
+  (if (ariadne:get-triples graph :subject uri :predicate +type+)
+      uri
+      (let ((colon-pos (position #\: uri)))
+        (when (and colon-pos (not (search "::" uri)))
+          (let ((internal-uri (concatenate 'string
+                                           (subseq uri 0 colon-pos)
+                                           "::"
+                                           (subseq uri (1+ colon-pos)))))
+            (if (ariadne:get-triples graph :subject internal-uri :predicate +type+)
+                internal-uri
+                uri))))))
