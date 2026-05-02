@@ -83,6 +83,9 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
 (defvar-local cl-codegraph--current-symbol nil
   "Currently displayed symbol in the codegraph buffer.")
 
+(defvar cl-codegraph--last-known-package nil
+  "Last package successfully used for a query.")
+
 (defvar cl-codegraph-view-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'cl-codegraph-visit-symbol-at-point)
@@ -109,8 +112,10 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
       (when (and symbol (not (equal symbol cl-codegraph--current-symbol)))
         (when cl-codegraph--current-symbol
           (push cl-codegraph--current-symbol cl-codegraph--history))
-        (setq cl-codegraph--current-symbol symbol)))))
-
+        (setq cl-codegraph--current-symbol symbol)
+        ;; Track package for future queries
+        (when (string-match "\\(.+?\\)::?" symbol)
+          (setq cl-codegraph--last-known-package (match-string 1 symbol)))))))
 (defun cl-codegraph--buttonize-symbols ()
   "Make symbol references in the buffer clickable."
   (save-excursion
@@ -466,6 +471,7 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
       (let ((displayed (cl-codegraph--displayed-symbol)))
         (when (and displayed (string-match "\\(.+?\\)::?" displayed))
           (match-string 1 displayed)))
+      cl-codegraph--last-known-package
       "cl-user"))
 
 (defun cl-codegraph--run-aggregate-query (form label)
