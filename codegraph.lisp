@@ -28,6 +28,7 @@
 (define-constant +reads-var+ "cg:readsVar")
 (define-constant +writes-var+ "cg:writesVar")
 (define-constant +value+ "cg:value")
+(define-constant +slot-of+ "cg:slotOf")
 
 ;;; Symbol classification
 
@@ -107,7 +108,9 @@
           (index-metadata graph sym uri kind)
           (index-macro-var-deps graph sym uri kind all-symbols))))
     ;; Call relationships
-    (index-call-graph graph all-symbols pkg include-external-calls)))
+    (index-call-graph graph all-symbols pkg include-external-calls)
+    ;; Accessor calls (inlined by SBCL, missed by find-function-callees)
+    (index-accessor-calls graph all-symbols)))
 
 (defun index-class (graph sym uri)
   "Add class hierarchy and slot triples for class named by SYM."
@@ -255,6 +258,53 @@ For generic functions, supplements with who-calls on exported symbols only (fast
                            (gethash callee-name sym-set))
                   (ariadne:add-triple graph method-uri +calls+
                                       (symbol-uri callee-name)))))))))))
+
+(defun accessor-p (sym)
+  "Return the struct/class name if SYM is a struct accessor or class slot reader, nil otherwise."
+  (when (fboundp sym)
+    ;; Check struct accessors via defstruct description
+    (let ((name (symbol-name sym)))
+      (dolist (pkg-sym (let (syms)
+                         (do-symbols (s (symbol-package sym)) (push s syms))
+                         syms))
+        (let ((dd (ignore-errors (sb-kernel:find-defstruct-description pkg-sym nil))))
+          (when dd
+            (dolist (slot (sb-kernel:dd-slots dd))
+              (when (string-equal name
+                                  (format nil "~A-~A"
+                                          (sb-kernel:dd-name dd)
+                                          (sb-kernel:dsd-name slot)))
+                (return-from accessor-p pkg-sym)))))))
+    ;; Check CLOS slot readers
+    (dolist (pkg-sym (let (syms)
+                       (do-symbols (s (symbol-package sym)) (push s syms))
+                       syms))
+      (when (find-class pkg-sym nil)
+        (let ((class (find-class pkg-sym)))
+          (dolist (slot (ignore-errors (sb-mop:class-direct-slots class)))
+            (when (member sym (sb-mop:slot-definition-readers slot))
+              (return-from accessor-p pkg-sym))))))))
+
+(defun index-accessor-calls (graph all-symbols)
+  "Use who-calls on accessor functions to find callers (inlined by SBCL).
+Also adds cg:slotOf triples."
+  (let ((sym-set (make-hash-table :test 'eq)))
+    (dolist (sym all-symbols)
+      (setf (gethash sym sym-set) t))
+    (dolist (sym all-symbols)
+      (let ((class-sym (accessor-p sym)))
+        (when class-sym
+          ;; Add slotOf triple
+          (ariadne:add-triple graph (symbol-uri sym) +slot-of+ (symbol-uri class-sym))
+          ;; Use who-calls to find callers within the package
+          (let ((uri (symbol-uri sym)))
+            (dolist (entry (sb-introspect:who-calls sym))
+              (let ((caller (car entry)))
+                (when (and (symbolp caller)
+                           (gethash caller sym-set)
+                           (not (eq caller sym)))
+                  (ariadne:add-triple graph (symbol-uri caller) +calls+ uri)
+                  (ariadne:add-triple graph uri +called-by+ (symbol-uri caller)))))))))))
 
 (defun callees-of (sym)
   "Return all function objects called by SYM. For GFs, walks method fast-functions."

@@ -246,6 +246,9 @@ showing what changed (:added N :removed M)."
       (format s "~A~%" uri)
       (when type-triples
         (format s "  type: ~A~%" (ariadne:triple-object (first type-triples))))
+      (let ((slot-of (ariadne:get-triples graph :subject uri :predicate +slot-of+)))
+        (when slot-of
+          (format s "  slot-of: ~A~%" (ariadne:triple-object (first slot-of)))))
       (when ll
         (format s "  args: ~A~%" (ariadne:triple-object (first ll))))
       (when val

@@ -57,4 +57,5 @@
    #:+expands-macro+
    #:+reads-var+
    #:+writes-var+
-   #:+value+))
+   #:+value+
+   #:+slot-of+))
