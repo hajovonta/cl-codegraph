@@ -414,8 +414,11 @@ in a dedicated side buffer."
 
 (require 'transient)
 
-(defvar cl-codegraph--symbol-cache (make-hash-table :test 'equal)
+(defvar cl-codegraph--symbol-cache nil
   "Cache of graph symbol names per package, keyed by package name.")
+(when (or (null cl-codegraph--symbol-cache)
+          (not (hash-table-p cl-codegraph--symbol-cache)))
+  (setq cl-codegraph--symbol-cache (make-hash-table :test 'equal)))
 
 (defun cl-codegraph-invalidate-cache ()
   "Clear the symbol completion cache."
