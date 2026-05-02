@@ -21,12 +21,16 @@
 (test constant-has-value-triple
   "Constants get a cg:value triple"
   (let ((g (cl-codegraph:build-graph :cg-val-pkg)))
-    (is (has-triple-p g "cg-val-pkg:+my-const+" "cg:value" "42"))))
+    (let ((triples (ariadne:get-triples g :subject "cg-val-pkg:+my-const+" :predicate "cg:value")))
+      (is (= 1 (length triples)))
+      (is (equal "42" (ariadne:rdf-literal-value (ariadne:triple-object (first triples))))))))
 
 (test variable-has-value-triple
   "Special variables get a cg:value triple"
   (let ((g (cl-codegraph:build-graph :cg-val-pkg)))
-    (is (has-triple-p g "cg-val-pkg:*my-var*" "cg:value" "\"hello\""))))
+    (let ((triples (ariadne:get-triples g :subject "cg-val-pkg:*my-var*" :predicate "cg:value")))
+      (is (= 1 (length triples)))
+      (is (equal "\"hello\"" (ariadne:rdf-literal-value (ariadne:triple-object (first triples))))))))
 
 (test constant-has-referenced-by
   "Constants track who references them"

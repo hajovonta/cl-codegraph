@@ -36,7 +36,7 @@
     (let ((triples (triples-with g :subject "cg-meta-pkg:documented-fn"
                                    :predicate "cg:lambdaList")))
       (is (= 1 (length triples)))
-      (is (string= "(X)" (ariadne:triple-object (first triples)))))))
+      (is (string= "(X)" (cl-codegraph::literal-value (ariadne:triple-object (first triples))))))))
 
 (test multi-arg-lambda-list
   "Complex lambda lists are captured"
@@ -44,26 +44,30 @@
     (let ((triples (triples-with g :subject "cg-meta-pkg:multi-arg-fn"
                                    :predicate "cg:lambdaList")))
       (is (= 1 (length triples)))
-      ;; Should contain &key and &optional
-      (is (search "&KEY" (ariadne:triple-object (first triples)))))))
+      (is (search "&KEY" (cl-codegraph::literal-value (ariadne:triple-object (first triples))))))))
 
 (test function-has-docstring
   "Functions with docstrings get a cg:docstring triple"
   (let ((g (cl-codegraph:build-graph :cg-meta-pkg)))
-    (is (has-triple-p g "cg-meta-pkg:documented-fn" "cg:docstring"
-                      "A function with a docstring."))))
+    (let ((triples (triples-with g :subject "cg-meta-pkg:documented-fn"
+                                   :predicate "cg:docstring")))
+      (is (= 1 (length triples)))
+      (is (string= "A function with a docstring."
+                    (cl-codegraph::literal-value (ariadne:triple-object (first triples))))))))
 
 (test class-has-docstring
   "Classes with docstrings get a cg:docstring triple"
   (let ((g (cl-codegraph:build-graph :cg-meta-pkg)))
-    (is (has-triple-p g "cg-meta-pkg:meta-class" "cg:docstring"
-                      "A documented class."))))
+    (let ((triples (triples-with g :subject "cg-meta-pkg:meta-class"
+                                   :predicate "cg:docstring")))
+      (is (= 1 (length triples)))
+      (is (string= "A documented class."
+                    (cl-codegraph::literal-value (ariadne:triple-object (first triples))))))))
 
 (test function-has-source-location
   "Functions get a cg:sourceFile triple when source is known"
   (let ((g (cl-codegraph:build-graph :cg-meta-pkg)))
     (let ((triples (triples-with g :subject "cg-meta-pkg:documented-fn"
                                    :predicate "cg:sourceFile")))
-      ;; May or may not have source (compiled in REPL won't), so just check structure
       (is (or (= 0 (length triples))
-              (stringp (ariadne:triple-object (first triples))))))))
+              (ariadne:rdf-literal-p (ariadne:triple-object (first triples))))))))

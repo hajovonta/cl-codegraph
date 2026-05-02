@@ -230,6 +230,12 @@ showing what changed (:added N :removed M)."
 
 ;;; REPL integration
 
+(defun literal-value (obj)
+  "Extract string value from OBJ — handles both plain strings and rdf-literal."
+  (if (ariadne:rdf-literal-p obj)
+      (ariadne:rdf-literal-value obj)
+      obj))
+
 (defun describe-symbol (graph uri)
   "Return a formatted string describing a symbol in the graph."
   (unless graph
@@ -250,11 +256,11 @@ showing what changed (:added N :removed M)."
         (when slot-of
           (format s "  slot-of: ~A~%" (ariadne:triple-object (first slot-of)))))
       (when ll
-        (format s "  args: ~A~%" (ariadne:triple-object (first ll))))
+        (format s "  args: ~A~%" (literal-value (ariadne:triple-object (first ll)))))
       (when val
-        (format s "  value: ~A~%" (ariadne:triple-object (first val))))
+        (format s "  value: ~A~%" (literal-value (ariadne:triple-object (first val)))))
       (when doc
-        (format s "  doc:  ~A~%" (ariadne:triple-object (first doc))))
+        (format s "  doc:  ~A~%" (literal-value (ariadne:triple-object (first doc)))))
       (when calls
         (format s "  calls:~%")
         (dolist (c calls) (format s "    ~A~%" c)))

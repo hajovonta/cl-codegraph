@@ -144,6 +144,10 @@
                 (ariadne:add-triple graph method-uri +specializes-on+
                                     (symbol-uri spec-name))))))))))
 
+(defun make-literal (value)
+  "Wrap VALUE as an RDF literal for storage in the graph."
+  (ariadne:intern-literal value ariadne:+xsd-string+))
+
 (defun index-metadata (graph sym uri kind)
   "Add lambda-list, docstring, and source-file triples for SYM."
   ;; Lambda list (for functions, generics, macros)
@@ -151,7 +155,7 @@
     (let ((ll (ignore-errors (sb-introspect:function-lambda-list sym))))
       (when ll
         (ariadne:add-triple graph uri +lambda-list+
-                            (string-upcase (princ-to-string ll))))))
+                            (make-literal (string-upcase (princ-to-string ll)))))))
   ;; Docstring
   (let ((doc (cond
                ((member kind '(:function :generic-function :macro))
@@ -161,13 +165,14 @@
                ((member kind '(:special-variable :constant))
                 (documentation sym 'variable)))))
     (when doc
-      (ariadne:add-triple graph uri +docstring+ doc)))
+      (ariadne:add-triple graph uri +docstring+ (make-literal doc))))
   ;; Value (for constants and variables)
   (when (member kind '(:constant :special-variable))
     (when (boundp sym)
       (ariadne:add-triple graph uri +value+
-                          (let ((*print-length* 10) (*print-level* 3))
-                            (prin1-to-string (symbol-value sym))))))
+                          (make-literal
+                           (let ((*print-length* 10) (*print-level* 3))
+                             (prin1-to-string (symbol-value sym)))))))
   ;; Source location
   (let* ((type (case kind
                  ((:function :generic-function) :function)
@@ -180,7 +185,7 @@
                      (sb-introspect:find-definition-sources-by-name sym type)))))
     (when (and sources (sb-introspect:definition-source-pathname (first sources)))
       (ariadne:add-triple graph uri +source-file+
-                          (namestring (sb-introspect:definition-source-pathname (first sources)))))))
+                          (make-literal (namestring (sb-introspect:definition-source-pathname (first sources))))))))
 
 (defun index-macro-var-deps (graph sym uri kind exported-symbols)
   "Add macro-expansion and variable read/write dependency triples."
