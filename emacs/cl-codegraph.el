@@ -459,11 +459,18 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
   (interactive)
   (setq cl-codegraph--symbol-cache nil))
 
+(defun cl-codegraph--current-package ()
+  "Get the current package for queries, trying multiple sources."
+  (or cl-codegraph--package
+      (cl-codegraph--detect-buffer-package)
+      (let ((displayed (cl-codegraph--displayed-symbol)))
+        (when (and displayed (string-match "\\(.+?\\)::?" displayed))
+          (match-string 1 displayed)))
+      "cl-user"))
+
 (defun cl-codegraph--run-aggregate-query (form label)
   "Run an aggregate FORM on the Lisp side and display result with LABEL."
-  (let ((pkg (or cl-codegraph--package
-                 (cl-codegraph--detect-buffer-package)
-                 "cl-user")))
+  (let ((pkg (cl-codegraph--current-package)))
     (glue-send-async
      `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
         (if g ,form "(package not monitored)"))
@@ -527,8 +534,12 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
 (defun cl-codegraph-cmd-call-chain ()
   "Prompt for from and to with completion, show call chain."
   (interactive)
-  (let* ((pkg (or cl-codegraph--package "cl-user"))
-         (default-from (or cl-codegraph--current-symbol ""))
+  (let* ((displayed (cl-codegraph--displayed-symbol))
+         (pkg (or (when displayed
+                    (and (string-match "\\(.+?\\)::?" displayed)
+                         (match-string 1 displayed)))
+                  cl-codegraph--package "cl-user"))
+         (default-from (or displayed cl-codegraph--current-symbol ""))
          (from (cl-codegraph--read-graph-symbol
                 (format "Call chain from [%s]: " default-from) default-from))
          (to (cl-codegraph--read-graph-symbol "Call chain to: ")))
