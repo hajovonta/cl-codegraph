@@ -635,13 +635,22 @@ For symbols: focuses on the node. For call-chain/impact: sends a query."
                (where (?s "cg:calls" ?o)
                       (values ?s ,(coerce symbols 'vector)))))
            (lambda (_) (message "Sent call chain to Explorer"))))))
-     ;; Impact result — visualize impact subgraph
+     ;; Impact result — send impact subgraph as query
      ((and content (string-match "^Impact of" content))
-      (let ((sym (or displayed cl-codegraph--current-symbol)))
+      (let ((sym (let ((first-line (car (split-string content "\n"))))
+                   (when (string-match "Impact of \\(.+\\):" first-line)
+                     (match-string 1 first-line)))))
         (when sym
-          (glue-send-async
-           `(ariadne:explorer-focus ,sym :depth 3)
-           (lambda (_) (message "Focused Explorer on %s (impact)" sym))))))
+          (let ((pkg (cl-codegraph--current-package)))
+            (glue-send-async
+             `(let* ((g (cl-codegraph:graph ,(intern (concat ":" pkg))))
+                     (uri (cl-codegraph::resolve-uri g ,sym))
+                     (impact (cl-codegraph:impact-of g uri))
+                     (all-nodes (cons uri impact)))
+                (ariadne:explorer-query
+                 (format nil "SELECT ?s ?p ?o WHERE { ?s ?p ?o . FILTER(?p = \"cg:calls\") . FILTER(?s IN (~{\"~A\"~^, ~})) }"
+                         all-nodes)))
+             (lambda (_) (message "Sent impact graph to Explorer")))))))
      ;; Symbol view — focus on node
      (displayed
       (glue-send-async
