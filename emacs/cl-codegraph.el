@@ -91,6 +91,8 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
     (define-key map (kbd "RET") #'cl-codegraph-visit-symbol-at-point)
     (define-key map (kbd "l") #'cl-codegraph-back)
     (define-key map (kbd "q") #'quit-window)
+    (define-key map (kbd "?") #'cl-codegraph-menu)
+    (define-key map (kbd "v") #'cl-codegraph-visualize)
     map)
   "Keymap for cl-codegraph view buffer.")
 
@@ -496,7 +498,8 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
    ("c" "Call chain..." cl-codegraph-cmd-call-chain)
    ("i" "Impact of..." cl-codegraph-cmd-impact)
    ("D" "Diff (refresh)" cl-codegraph-cmd-diff)
-   ("s" "Summary" cl-codegraph-cmd-summary)])
+   ("s" "Summary" cl-codegraph-cmd-summary)
+   ("v" "Visualize in Explorer" cl-codegraph-visualize)])
 
 (defun cl-codegraph-cmd-dead-exports ()
   "Show dead exports."
@@ -611,6 +614,52 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
   (cl-codegraph--run-aggregate-query
    '(cl-codegraph:summary g)
    "Graph summary:"))
+
+(defun cl-codegraph-visualize ()
+  "Send current view to Ariadne Graph Explorer.
+For symbols: focuses on the node. For call-chain/impact: sends a query."
+  (interactive)
+  (let* ((buf (get-buffer cl-codegraph-buffer-name))
+         (content (when buf (with-current-buffer buf
+                              (buffer-substring-no-properties (point-min) (point-max)))))
+         (displayed (cl-codegraph--displayed-symbol))
+         (pkg (cl-codegraph--current-package)))
+    (cond
+     ;; Call chain result — visualize the path
+     ((and content (string-match "^Call chain:" content))
+      (let ((symbols (cl-codegraph--extract-chain-symbols content)))
+        (when symbols
+          (glue-send-async
+           `(ariadne:explorer-query
+             '(select (?s ?p ?o)
+               (where (?s "cg:calls" ?o)
+                      (values ?s ,(coerce symbols 'vector)))))
+           (lambda (_) (message "Sent call chain to Explorer"))))))
+     ;; Impact result — visualize impact subgraph
+     ((and content (string-match "^Impact of" content))
+      (let ((sym (or displayed cl-codegraph--current-symbol)))
+        (when sym
+          (glue-send-async
+           `(ariadne:explorer-focus ,sym :depth 3)
+           (lambda (_) (message "Focused Explorer on %s (impact)" sym))))))
+     ;; Symbol view — focus on node
+     (displayed
+      (glue-send-async
+       `(ariadne:explorer-focus ,displayed :depth 2)
+       (lambda (_) (message "Focused Explorer on %s" displayed))))
+     (t (message "Nothing to visualize")))))
+
+(defun cl-codegraph--extract-chain-symbols (content)
+  "Extract symbol URIs from a call-chain result buffer content."
+  (let (symbols)
+    (dolist (line (split-string content "\n"))
+      (let ((trimmed (string-trim line)))
+        (when (and (> (length trimmed) 0)
+                   (not (string= trimmed "Call chain:"))
+                   (not (string= trimmed "↓"))
+                   (string-match "::?" trimmed))
+          (push trimmed symbols))))
+    (nreverse symbols)))
 
 ;; Bind menu to ? in codegraph view
 (define-key cl-codegraph-view-mode-map (kbd "?") #'cl-codegraph-menu)
