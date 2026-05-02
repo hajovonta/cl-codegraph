@@ -570,14 +570,23 @@ Shows bare names when unambiguous, qualified when the same name exists in multip
 (defun cl-codegraph-cmd-impact ()
   "Show impact of symbol at point."
   (interactive)
-  (let ((sym (or (cl-codegraph--displayed-symbol) cl-codegraph--current-symbol "")))
-    (cl-codegraph--run-aggregate-query
-     `(let* ((uri (cl-codegraph::resolve-uri g ,sym))
-             (impact (cl-codegraph:impact-of g uri)))
-        (if impact
-            (format nil "~A symbols affected:~%~{  ~A~%~}" (length impact) impact)
-            "No dependents found."))
-     (format "Impact of %s:" sym))))
+  (let* ((sym (or (cl-codegraph--displayed-symbol) cl-codegraph--current-symbol ""))
+         (pkg (if (string-match "\\(.+?\\)::?" sym)
+                  (match-string 1 sym)
+                (cl-codegraph--current-package))))
+    (glue-send-async
+     `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
+        (if g
+            (let* ((uri (cl-codegraph::resolve-uri g ,sym))
+                   (impact (cl-codegraph:impact-of g uri)))
+              (if impact
+                  (format nil "~A symbols affected:~%~{  ~A~%~}" (length impact) impact)
+                  "No dependents found."))
+            "(package not monitored)"))
+     (lambda (result)
+       (cl-codegraph--update-view-buffer
+        (format "Impact of %s:\n\n%s" sym (or result "nil")))
+       (cl-codegraph--ensure-view-window)))))
 
 (defun cl-codegraph--displayed-symbol ()
   "Get the symbol currently displayed on the first line of *codegraph* buffer."
