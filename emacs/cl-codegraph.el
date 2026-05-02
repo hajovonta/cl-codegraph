@@ -650,7 +650,9 @@ For symbols: focuses on the node. For call-chain/impact: sends a query."
                    (when (string-match "Impact of \\(.+\\):" first-line)
                      (match-string 1 first-line)))))
         (when sym
-          (let ((pkg (cl-codegraph--current-package)))
+          (let ((pkg (if (string-match "\\(.+?\\)::?" sym)
+                         (match-string 1 sym)
+                       (cl-codegraph--current-package))))
             (glue-send-async
              `(let* ((g (cl-codegraph:graph ,(intern (concat ":" pkg))))
                      (uri (cl-codegraph::resolve-uri g ,sym))
