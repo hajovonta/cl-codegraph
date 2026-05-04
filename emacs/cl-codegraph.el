@@ -676,7 +676,7 @@ For symbols: focuses on the node. For call-chain/impact: sends a query."
      ((and displayed (string-match "^[a-z]" displayed))
       (glue-send-async
        `(progn ,ensure-form
-               (ariadne:explorer-focus ,displayed :depth 2))
+               (ariadne:explorer-focus ,displayed :depth 1))
        (lambda (_) (message "Focused Explorer on %s" displayed))))
      (t (message "Nothing to visualize")))))
 
