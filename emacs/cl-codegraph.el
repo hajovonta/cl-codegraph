@@ -632,17 +632,23 @@ For symbols: focuses on the node. For call-chain/impact: sends a query."
          (content (when buf (with-current-buffer buf
                               (buffer-substring-no-properties (point-min) (point-max)))))
          (displayed (cl-codegraph--displayed-symbol))
-         (pkg (cl-codegraph--current-package)))
+         (pkg (cl-codegraph--current-package))
+         ;; Ensure codegraph is registered and active in the explorer
+         (ensure-form `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
+                         (when g
+                           (ariadne:explorer-add-graph g)
+                           (setf ariadne::*web-graph* g)))))
     (cond
      ;; Call chain result — visualize the path
      ((and content (string-match "^Call chain:" content))
       (let ((symbols (cl-codegraph--extract-chain-symbols content)))
         (when symbols
           (glue-send-async
-           `(ariadne:explorer-query
-             '(select (?s ?p ?o)
-               (where (?s "cg:calls" ?o)
-                      (values ?s ,(coerce symbols 'vector)))))
+           `(progn ,ensure-form
+                   (ariadne:explorer-query
+                    '(select (?s ?p ?o)
+                      (where (?s "cg:calls" ?o)
+                             (values ?s ,(coerce symbols 'vector))))))
            (lambda (_) (message "Sent call chain to Explorer"))))))
      ;; Impact result — send impact subgraph as query
      ((and content (string-match "^Impact of" content))
@@ -654,18 +660,20 @@ For symbols: focuses on the node. For call-chain/impact: sends a query."
                          (match-string 1 sym)
                        (cl-codegraph--current-package))))
             (glue-send-async
-             `(let* ((g (cl-codegraph:graph ,(intern (concat ":" pkg))))
-                     (uri (cl-codegraph::resolve-uri g ,sym))
-                     (impact (cl-codegraph:impact-of g uri))
-                     (all-nodes (cons uri impact)))
-                (ariadne:explorer-query
-                 (format nil "SELECT ?s ?p ?o WHERE { ?s ?p ?o . FILTER(?p = \"cg:calls\") . FILTER(?s IN (~{\"~A\"~^, ~})) }"
-                         all-nodes)))
+             `(progn ,ensure-form
+                     (let* ((g (cl-codegraph:graph ,(intern (concat ":" pkg))))
+                            (uri (cl-codegraph::resolve-uri g ,sym))
+                            (impact (cl-codegraph:impact-of g uri))
+                            (all-nodes (cons uri impact)))
+                       (ariadne:explorer-query
+                        (format nil "SELECT ?s ?p ?o WHERE { ?s ?p ?o . FILTER(?p = \"cg:calls\") . FILTER(?s IN (~{\"~A\"~^, ~})) }"
+                                all-nodes))))
              (lambda (_) (message "Sent impact graph to Explorer")))))))
      ;; Symbol view — focus on node
-     (displayed
+     ((and displayed (string-match "^[a-z]" displayed))
       (glue-send-async
-       `(ariadne:explorer-focus ,displayed :depth 2)
+       `(progn ,ensure-form
+               (ariadne:explorer-focus ,displayed :depth 2))
        (lambda (_) (message "Focused Explorer on %s" displayed))))
      (t (message "Nothing to visualize")))))
 
