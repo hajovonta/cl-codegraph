@@ -123,7 +123,7 @@ Handles package-qualified symbols (pkg:sym, pkg::sym)."
   (save-excursion
     (goto-char (point-min))
     ;; Match any pkg:sym or pkg::sym pattern on indented lines
-    (while (re-search-forward "\\b\\([a-z][a-z0-9*+._-]*::?[a-z0-9*+._/-]+\\)" nil t)
+    (while (re-search-forward "\\b\\([a-z][a-z0-9*+._%-]*::?[a-z0-9*+._/%-]+\\)" nil t)
       (let ((sym (match-string 1))
             (start (match-beginning 1))
             (end (match-end 1)))
