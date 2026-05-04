@@ -632,7 +632,10 @@ For symbols: focuses on the node. For call-chain/impact: sends a query."
          (content (when buf (with-current-buffer buf
                               (buffer-substring-no-properties (point-min) (point-max)))))
          (displayed (cl-codegraph--displayed-symbol))
-         (pkg (cl-codegraph--current-package))
+         (pkg (or (when displayed
+                    (and (string-match "\\(.+?\\)::?" displayed)
+                         (match-string 1 displayed)))
+                  (cl-codegraph--current-package)))
          ;; Ensure codegraph is registered and active in the explorer
          (ensure-form `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
                          (when g
