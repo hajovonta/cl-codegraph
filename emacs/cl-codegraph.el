@@ -394,7 +394,14 @@ in a dedicated side buffer."
               (lambda ()
                 (when (and buffer-file-name
                            (string-prefix-p dir (expand-file-name buffer-file-name)))
-                  (cl-codegraph-mode 1))))))
+                  (cl-codegraph-mode 1))))
+    ;; Also enable in already-open matching buffers
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (when (and (derived-mode-p 'lisp-mode 'common-lisp-mode)
+                   buffer-file-name
+                   (string-prefix-p dir (expand-file-name buffer-file-name)))
+          (cl-codegraph-mode 1))))))
 
 ;;;###autoload
 (defun cl-codegraph-set-package (pkg)
