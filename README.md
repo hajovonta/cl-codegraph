@@ -4,21 +4,67 @@ Automatic Knowledge Graph of Common Lisp code via live image introspection.
 
 Given a package loaded in the SBCL image, builds and maintains an Ariadne graph of its symbols, class hierarchies, method specializations, call relationships, and metadata — all without parsing source code. Includes a live Emacs integration that shows code intelligence as you navigate.
 
-## Quick Start
+## Getting Started
+
+### 1. Install
+
+Clone into your Quicklisp local-projects:
+
+```bash
+cd ~/quicklisp/local-projects/
+git clone https://git.sr.ht/~hajovonta/cl-codegraph
+git clone https://git.sr.ht/~hajovonta/ariadne
+```
+
+### 2. Emacs setup
+
+Add to your init file:
+
+```elisp
+(add-to-list 'load-path "~/quicklisp/local-projects/cl-codegraph/emacs/")
+(require 'cl-codegraph)
+(cl-codegraph-enable-globally)  ;; activates in all lisp-mode buffers
+```
+
+Or, to enable per-buffer instead: `M-x codegraph-mode` in any Lisp buffer.
+
+Requires [glue](https://melpa.org/#/glue) (available on MELPA).
+
+### 3. Load in SBCL
+
+Start your Lisp image and load your project as usual, then:
 
 ```lisp
-;; In the REPL:
 (ql:quickload :cl-codegraph)
 ```
 
+That's it. No further setup needed — everything else is automatic.
+
+### 4. Use
+
+1. Open any CL source file in Emacs
+2. Move your cursor to a symbol — the `*codegraph*` buffer appears showing type, args, docstring, callers, callees
+3. Click (RET) on any symbol in `*codegraph*` to jump to its source and update the view
+4. Press `?` for aggregate queries (dead exports, cycles, impact analysis, call chains)
+5. Press `v` to visualize in the Graph Explorer web UI (auto-starts at http://localhost:8080/)
+
+Package detection, graph building, monitoring, and incremental updates all happen automatically on first access.
+
+### Configuration
+
 ```elisp
-;; In Emacs:
-(add-to-list 'load-path "~/quicklisp/local-projects/cl-codegraph/emacs/")
-(require 'cl-codegraph)
-(cl-codegraph-enable-globally)
+;; Adjust idle delay before updating (default: 0.3s)
+(setq cl-codegraph-idle-delay 0.5)
+
+;; Change Graph Explorer port (default: 8080)
+(setq cl-codegraph-explorer-port 9090)
 ```
 
-That's it. Open any CL source file, move your cursor — the `*codegraph*` buffer appears showing type, args, docstring, callers, callees, and value for the symbol at point. Everything is automatic: package detection, graph building, and incremental updates.
+If you prefer to start the web server manually (e.g., different port, or before first `v`):
+
+```lisp
+(ariadne:start-web-server :port 9090)
+```
 
 ## Emacs Integration
 
