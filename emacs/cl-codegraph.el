@@ -31,6 +31,11 @@
   :type 'string
   :group 'cl-codegraph)
 
+(defcustom cl-codegraph-explorer-port 8080
+  "Port for the Ariadne Graph Explorer web server."
+  :type 'integer
+  :group 'cl-codegraph)
+
 ;;; Internal state
 
 (defvar cl-codegraph--current-request-id 0
@@ -639,6 +644,8 @@ For symbols: focuses on the node. For call-chain/impact: sends a query."
          ;; Ensure codegraph is registered and active in the explorer
          (ensure-form `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
                          (when g
+                           (unless ariadne::*web-server*
+                             (ariadne:start-web-server :port ,cl-codegraph-explorer-port))
                            (ariadne:explorer-add-graph g)
                            (setf ariadne::*web-graph* g)))))
     (cond
