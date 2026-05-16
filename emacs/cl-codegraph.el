@@ -316,6 +316,17 @@ Returns lowercase package name string, or nil."
 
 ;;; Idle timer callback
 
+(defun cl-codegraph--stale-view-p ()
+  "Return t if the *codegraph* buffer shows stale/incomplete content."
+  (let ((buf (get-buffer cl-codegraph-buffer-name)))
+    (when buf
+      (with-current-buffer buf
+        (save-excursion
+          (goto-char (point-min))
+          (or (search-forward "(indexing in progress...)" nil t)
+              (search-forward "(not in graph)" nil t)
+              (search-forward "(not monitored)" nil t)))))))
+
 (defun cl-codegraph--on-idle ()
   "Called after idle delay. Query symbol at point if changed."
   (when cl-codegraph-mode
@@ -325,7 +336,8 @@ Returns lowercase package name string, or nil."
         (let* ((sym-raw (cl-codegraph--symbol-at-point))
                (sym (when sym-raw
                       (cl-codegraph--qualify-symbol sym-raw pkg))))
-          (when (and sym (not (equal sym cl-codegraph--last-symbol)))
+          (when (and sym (or (not (equal sym cl-codegraph--last-symbol))
+                             (cl-codegraph--stale-view-p)))
             (setq cl-codegraph--last-symbol sym)
             (cl-codegraph--query-symbol sym)))))))
 
@@ -645,7 +657,7 @@ For symbols: focuses on the node. For call-chain/impact: sends a query."
          (ensure-form `(let ((g (cl-codegraph:graph ,(intern (concat ":" pkg)))))
                          (when g
                            (unless ariadne::*web-server*
-                             (ariadne:start-web-server :port ,cl-codegraph-explorer-port))
+                             (ariadne:start-web-server nil :port ,cl-codegraph-explorer-port))
                            (ariadne:explorer-add-graph g)
                            (setf ariadne::*web-graph* g)))))
     (cond

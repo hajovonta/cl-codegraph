@@ -264,40 +264,44 @@ For generic functions, supplements with who-calls on exported symbols only (fast
                   (ariadne:add-triple graph method-uri +calls+
                                       (symbol-uri callee-name)))))))))))
 
-(defun accessor-p (sym)
-  "Return the struct/class name if SYM is a struct accessor or class slot reader, nil otherwise."
-  (when (fboundp sym)
-    ;; Check struct accessors via defstruct description
-    (let ((name (symbol-name sym)))
-      (dolist (pkg-sym (let (syms)
-                         (do-symbols (s (symbol-package sym)) (push s syms))
-                         syms))
-        (let ((dd (ignore-errors (sb-kernel:find-defstruct-description pkg-sym nil))))
-          (when dd
-            (dolist (slot (sb-kernel:dd-slots dd))
-              (when (string-equal name
-                                  (format nil "~A-~A"
+(defun build-accessor-table (all-symbols)
+  "Build a hash table mapping accessor symbols to their struct/class owner symbol.
+Computed once per package to avoid O(n²) scanning."
+  (let ((table (make-hash-table :test 'eq)))
+    ;; Struct accessors
+    (dolist (sym all-symbols)
+      (let ((dd (ignore-errors (sb-kernel:find-defstruct-description sym nil))))
+        (when dd
+          (dolist (slot (sb-kernel:dd-slots dd))
+            (let* ((accessor-name (format nil "~A-~A"
                                           (sb-kernel:dd-name dd)
                                           (sb-kernel:dsd-name slot)))
-                (return-from accessor-p pkg-sym)))))))
-    ;; Check CLOS slot readers
-    (dolist (pkg-sym (let (syms)
-                       (do-symbols (s (symbol-package sym)) (push s syms))
-                       syms))
-      (when (find-class pkg-sym nil)
-        (let ((class (find-class pkg-sym)))
+                   (accessor-sym (find-symbol accessor-name (symbol-package sym))))
+              (when accessor-sym
+                (setf (gethash accessor-sym table) sym)))))))
+    ;; CLOS slot readers
+    (dolist (sym all-symbols)
+      (when (find-class sym nil)
+        (let ((class (find-class sym)))
           (dolist (slot (ignore-errors (sb-mop:class-direct-slots class)))
-            (when (member sym (sb-mop:slot-definition-readers slot))
-              (return-from accessor-p pkg-sym))))))))
+            (dolist (reader (sb-mop:slot-definition-readers slot))
+              (setf (gethash reader table) sym))))))
+    table))
+
+(defun accessor-p (sym &optional accessor-table)
+  "Return the struct/class name if SYM is a struct accessor or class slot reader, nil otherwise."
+  (when (and (fboundp sym) accessor-table)
+    (gethash sym accessor-table)))
 
 (defun index-accessor-calls (graph all-symbols)
   "Use who-calls on accessor functions to find callers (inlined by SBCL).
 Also adds cg:slotOf triples."
-  (let ((sym-set (make-hash-table :test 'eq)))
+  (let ((sym-set (make-hash-table :test 'eq))
+        (accessor-table (build-accessor-table all-symbols)))
     (dolist (sym all-symbols)
       (setf (gethash sym sym-set) t))
     (dolist (sym all-symbols)
-      (let ((class-sym (accessor-p sym)))
+      (let ((class-sym (accessor-p sym accessor-table)))
         (when class-sym
           ;; Add slotOf triple
           (ariadne:add-triple graph (symbol-uri sym) +slot-of+ (symbol-uri class-sym))

@@ -86,8 +86,24 @@ The `*codegraph*` buffer is a live code intelligence panel:
 |-----|--------|
 | RET | Visit symbol: jump to source + update view |
 | l | Go back in history |
+| v | Visualize in Graph Explorer (auto-starts web server) |
 | ? | Transient menu (aggregate queries) |
 | q | Close window |
+
+### Graph Explorer
+
+Press `v` in the `*codegraph*` buffer to visualize the current symbol or query result in Ariadne's web-based Graph Explorer. On first use, the web server starts automatically at `http://localhost:8080/`.
+
+- **Symbol view**: focuses the explorer on the node with depth-1 neighborhood
+- **Impact result**: sends a SPARQL query showing all impacted call edges
+- **Call chain**: sends the chain as a subgraph query
+
+Monitored graphs are automatically registered in the Explorer's graph selector dropdown.
+
+```elisp
+;; Change the explorer port (default: 8080)
+(setq cl-codegraph-explorer-port 9090)
+```
 
 ## Programmatic API
 
@@ -119,6 +135,10 @@ The `*codegraph*` buffer is a live code intelligence panel:
 (cl-codegraph:monitor :my-package :include-internal t)
 (cl-codegraph:graph :my-package)  ;; always current — flushes dirty symbols
 (cl-codegraph:unmonitor :my-package)
+
+;; Large packages (>200 symbols) are indexed in a background thread.
+;; monitor returns immediately; aggregate queries work once indexing completes.
+(setf cl-codegraph:*background-index-threshold* 500)  ;; tune if needed
 
 ;; Multi-package
 (cl-codegraph:build-multi-graph '(:pkg-a :pkg-b))

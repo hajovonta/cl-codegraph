@@ -9,12 +9,16 @@
   package
   include-internal
   include-external-calls
-  dirty-symbols)  ;; hash-table: symbol → t
+  dirty-symbols   ;; hash-table: symbol → t
+  indexing-p)     ;; t while background indexing is in progress
 
 (defvar *monitors* (make-hash-table :test 'eq)
   "Map from package object to monitor-entry.")
 
 (defvar *hook-installed* nil)
+
+(defvar *index-lock* (sb-thread:make-mutex :name "cl-codegraph-index")
+  "Mutex to serialize background indexing (Ariadne graphs are not thread-safe).")
 
 ;;; Hook
 
@@ -62,22 +66,61 @@
 
 ;;; Public API
 
+(defvar *background-index-threshold* 200
+  "Packages with more symbols than this are indexed in the background.")
+
 (defun monitor (package-designator &key include-internal include-external-calls)
   "Start monitoring PACKAGE-DESIGNATOR. Builds initial graph and installs hooks.
-Returns the graph."
+For large packages (>*background-index-threshold* symbols), indexing runs in a
+background thread. Returns the graph immediately.
+If already monitored, returns the existing graph."
   (let* ((pkg (find-package package-designator))
-         (g (build-graph package-designator
-                         :include-internal include-internal
-                         :include-external-calls include-external-calls))
+         (existing (gethash pkg *monitors*)))
+    (when existing
+      (return-from monitor (monitor-entry-graph existing)))
+    (let* ((sym-count (let ((n 0))
+                      (if include-internal
+                          (do-symbols (s pkg) (when (eq (symbol-package s) pkg) (incf n)))
+                          (do-external-symbols (s pkg) (incf n)))
+                      n))
+         (g (ariadne:make-graph :name (format nil "codegraph/~(~A~)" (package-name pkg))))
          (entry (make-monitor-entry
                  :graph g
                  :package pkg
                  :include-internal include-internal
                  :include-external-calls include-external-calls
-                 :dirty-symbols (make-hash-table :test 'eq))))
+                 :dirty-symbols (make-hash-table :test 'eq)
+                 :indexing-p nil)))
     (setf (gethash pkg *monitors*) entry)
     (install-hook)
-    g))
+    (if (> sym-count *background-index-threshold*)
+        ;; Background indexing for large packages
+        (progn
+          (setf (monitor-entry-indexing-p entry) t)
+          (format t "~&; cl-codegraph: indexing ~A (~D symbols) in background...~%"
+                  (package-name pkg) sym-count)
+          (sb-thread:make-thread
+           (lambda ()
+             (let ((result (sb-thread:with-mutex (*index-lock*)
+                             (build-graph package-designator
+                                          :include-internal include-internal
+                                          :include-external-calls include-external-calls))))
+               (setf (monitor-entry-graph entry) result)
+               (setf (monitor-entry-indexing-p entry) nil)
+               (when ariadne::*web-server*
+                 (ariadne:explorer-add-graph result))
+               (format t "~&; cl-codegraph: ~A indexing complete (~D triples).~%"
+                       (package-name pkg) (ariadne:triple-count result))))
+           :name (format nil "cl-codegraph-index-~A" (package-name pkg)))
+          g)
+        ;; Synchronous for small packages
+        (let ((result (build-graph package-designator
+                                   :include-internal include-internal
+                                   :include-external-calls include-external-calls)))
+          (setf (monitor-entry-graph entry) result)
+          (when ariadne::*web-server*
+            (ariadne:explorer-add-graph result))
+          result)))))
 
 (defun unmonitor (package-designator)
   "Stop monitoring PACKAGE-DESIGNATOR."
@@ -95,20 +138,45 @@ Returns the graph."
       (monitor package-designator :include-internal t)))
   (graph package-designator))
 
+(defun resolve-symbol-from-uri (uri)
+  "Resolve a symbol URI like \"pkg:name\" or \"pkg::name\" to the actual symbol."
+  (let* ((double (search "::" uri))
+         (colon-pos (or double (position #\: uri)))
+         (pkg-name (when colon-pos (subseq uri 0 colon-pos)))
+         (sym-name (when colon-pos
+                     (subseq uri (if double (+ 2 double) (1+ colon-pos)))))
+         (pkg (when pkg-name (find-package (string-upcase pkg-name)))))
+    (when (and pkg sym-name)
+      (find-symbol (string-upcase sym-name) pkg))))
+
 (defun describe-symbol-live (package-designator uri)
   "Auto-monitor PACKAGE-DESIGNATOR if needed, then describe URI.
 Tries both exported (:) and internal (::) forms if needed.
-Handles method URIs directly from the graph."
+Falls back to the symbol's home package if not found in the requested one.
+Handles method URIs directly from the graph.
+Works during background indexing with partial results."
   (ensure-monitor package-designator)
-  (let ((g (graph package-designator)))
+  ;; Also ensure-monitor the symbol's home package if different
+  (let ((sym (resolve-symbol-from-uri uri)))
+    (when sym
+      (let ((home-pkg (symbol-package sym)))
+        (when (and home-pkg (not (eq home-pkg (find-package package-designator))))
+          (ensure-monitor (intern (package-name home-pkg) :keyword))))))
+  (let* ((pkg (find-package package-designator))
+         (entry (when pkg (gethash pkg *monitors*)))
+         (g (when entry (monitor-entry-graph entry)))
+         (indexing (when entry (monitor-entry-indexing-p entry))))
     ;; Method URIs — look up directly in graph
     (when (search "/method/" uri)
       (return-from describe-symbol-live
         (describe-method-node g uri)))
     ;; Normal symbol lookup
-    (let ((result (describe-symbol g uri)))
-      ;; If only the name was returned (no type info), try internal form
-      (when (and g
+    (let ((result (if (and indexing
+                           (not (ariadne:get-triples g :subject uri :predicate +type+)))
+                      (describe-symbol-quick uri)
+                      (describe-symbol g uri))))
+      ;; If not found, try internal form
+      (when (and g (not indexing)
                  (not (ariadne:get-triples g :subject uri :predicate +type+))
                  (not (search "::" uri)))
         (let* ((colon-pos (position #\: uri))
@@ -120,7 +188,51 @@ Handles method URIs directly from the graph."
           (when (and internal-uri
                      (ariadne:get-triples g :subject internal-uri :predicate +type+))
             (setf result (describe-symbol g internal-uri)))))
+      ;; If still not found, try the symbol's home package
+      (when (and (not indexing)
+                 (or (null g)
+                     (not (ariadne:get-triples g :subject uri :predicate +type+))))
+        (let* ((sym (resolve-symbol-from-uri uri))
+               (home-pkg (when sym (symbol-package sym))))
+          (when (and home-pkg (not (eq home-pkg pkg)))
+            (let* ((home-key (intern (package-name home-pkg) :keyword))
+                   (home-entry (gethash home-pkg *monitors*))
+                   (home-g (when home-entry (monitor-entry-graph home-entry)))
+                   (home-indexing (when home-entry (monitor-entry-indexing-p home-entry))))
+              (if home-indexing
+                  (setf result (describe-symbol-quick uri))
+                  (when home-g
+                    (let ((home-uri (symbol-uri sym)))
+                      (when (ariadne:get-triples home-g :subject home-uri :predicate +type+)
+                        (setf result (describe-symbol home-g home-uri))))))))))
+      ;; Check if any relevant package is still indexing
+      (let* ((sym (resolve-symbol-from-uri uri))
+             (home-pkg (when sym (symbol-package sym)))
+             (home-entry (when home-pkg (gethash home-pkg *monitors*)))
+             (any-indexing (or indexing
+                              (when home-entry (monitor-entry-indexing-p home-entry)))))
+        (when any-indexing
+          (setf result (concatenate 'string result
+                                    (format nil "~%  (indexing in progress...)~%")))))
       result)))
+
+(defun describe-symbol-quick (uri)
+  "Quick introspection-based describe without the graph. Used during background indexing."
+  (let* ((sym (resolve-symbol-from-uri uri)))
+    (if (null sym)
+        (format nil "~A~%  (symbol not found)~%" uri)
+        (let ((display-uri (symbol-uri sym)))
+          (with-output-to-string (s)
+            (format s "~A~%" display-uri)
+            (format s "  type: ~A~%" (classify-symbol sym))
+            (when (and (fboundp sym)
+                       (not (macro-function sym)))
+              (let ((ll (ignore-errors (sb-introspect:function-lambda-list sym))))
+                (when ll (format s "  args: ~A~%" (string-upcase (princ-to-string ll))))))
+            (let ((doc (or (documentation sym 'function)
+                           (documentation sym 'variable)
+                           (when (find-class sym nil) (documentation (find-class sym) t)))))
+              (when doc (format s "  doc:  ~A~%" doc))))))))
 
 (defun describe-method-node (graph uri)
   "Describe a method node URI from the graph."
@@ -146,7 +258,8 @@ Returns nil if not monitored."
   (let* ((pkg (find-package package-designator))
          (entry (gethash pkg *monitors*)))
     (when entry
-      (flush-dirty entry)
+      (unless (monitor-entry-indexing-p entry)
+        (flush-dirty entry))
       (monitor-entry-graph entry))))
 
 ;;; Incremental update
