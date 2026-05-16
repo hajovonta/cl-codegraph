@@ -377,6 +377,25 @@ in a dedicated side buffer."
       (when (derived-mode-p 'lisp-mode 'common-lisp-mode)
         (cl-codegraph-mode 1)))))
 
+(defun cl-codegraph-disable-globally ()
+  "Disable cl-codegraph-mode in all Lisp buffers and remove the hook."
+  (interactive)
+  (remove-hook 'lisp-mode-hook #'cl-codegraph-mode)
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when cl-codegraph-mode
+        (cl-codegraph-mode -1)))))
+
+(defun cl-codegraph-enable-for-directory (dir)
+  "Enable cl-codegraph-mode for Lisp buffers visiting files under DIR."
+  (interactive "DProject directory: ")
+  (let ((dir (expand-file-name dir)))
+    (add-hook 'lisp-mode-hook
+              (lambda ()
+                (when (and buffer-file-name
+                           (string-prefix-p dir (expand-file-name buffer-file-name)))
+                  (cl-codegraph-mode 1))))))
+
 ;;;###autoload
 (defun cl-codegraph-set-package (pkg)
   "Set the monitored PACKAGE for cl-codegraph queries."
