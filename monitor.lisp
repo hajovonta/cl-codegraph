@@ -54,6 +54,10 @@
                         (lambda (orig &rest args)
                           (mark-symbol-dirty (first args))
                           (apply orig args)))
+    (sb-int:encapsulate 'fmakunbound 'cl-codegraph
+                        (lambda (orig &rest args)
+                          (mark-symbol-dirty (first args))
+                          (apply orig args)))
     (setf *hook-installed* t)))
 
 (defun remove-hook ()
@@ -62,6 +66,7 @@
   (sb-int:unencapsulate *%defvar-sym* 'cl-codegraph)
   (sb-int:unencapsulate *%defparameter-sym* 'cl-codegraph)
   (sb-int:unencapsulate *load-defclass-sym* 'cl-codegraph)
+  (sb-int:unencapsulate 'fmakunbound 'cl-codegraph)
   (setf *hook-installed* nil))
 
 ;;; Public API
