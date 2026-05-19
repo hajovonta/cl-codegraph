@@ -293,6 +293,10 @@ Returns nil if not monitored."
                  dirty)
         (clrhash dirty)))))
 
+(defvar *post-reindex-hook* nil
+  "Function called after a symbol is re-indexed: (funcall hook graph symbol uri).
+   Used by Janus to store source text.")
+
 (defun reindex-symbol (graph sym all-symbols)
   "Remove all triples for SYM and re-index it."
   (let ((uri (symbol-uri sym)))
@@ -342,4 +346,6 @@ Returns nil if not monitored."
                                (not (eq callee-name sym)))
                       (let ((callee-uri (symbol-uri callee-name)))
                         (ariadne:add-triple graph uri +calls+ callee-uri)
-                        (ariadne:add-triple graph callee-uri +called-by+ uri)))))))))))))
+                        (ariadne:add-triple graph callee-uri +called-by+ uri)))))))
+            (when *post-reindex-hook*
+              (funcall *post-reindex-hook* graph sym uri))))))))

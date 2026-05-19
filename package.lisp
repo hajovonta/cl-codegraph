@@ -40,6 +40,7 @@
    #:ensure-monitor
    #:describe-symbol-live
    #:*background-index-threshold*
+   #:*post-reindex-hook*
    ;; Predicates (URIs used in the graph)
    #:+type+
    #:+calls+
