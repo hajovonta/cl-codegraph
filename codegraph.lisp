@@ -107,6 +107,8 @@
             (:generic-function (index-generic graph sym uri)))
           (index-metadata graph sym uri kind)
           (index-macro-var-deps graph sym uri kind all-symbols))))
+    ;; Methods on foreign generics specialized on our classes
+    (index-foreign-methods graph pkg pkg-uri all-symbols)
     ;; Call relationships
     (index-call-graph graph all-symbols pkg include-external-calls)
     ;; Accessor calls (inlined by SBCL, missed by find-function-callees)
@@ -143,6 +145,43 @@
               (unless (eq spec-name t)
                 (ariadne:add-triple graph method-uri +specializes-on+
                                     (symbol-uri spec-name))))))))))
+
+(defun index-foreign-methods (graph pkg pkg-uri all-symbols)
+  "Index methods on foreign generics that specialize on classes from PKG."
+  (dolist (sym all-symbols)
+    (when (find-class sym nil)
+      (let ((class (find-class sym)))
+        (dolist (method (sb-mop:specializer-direct-methods class))
+          (let* ((gf (sb-mop:method-generic-function method))
+                 (gf-name (sb-mop:generic-function-name gf)))
+            (when (and (symbolp gf-name)
+                       (not (eq (symbol-package gf-name) pkg)))
+              (let* ((specializers (sb-mop:method-specializers method))
+                     (gf-uri (symbol-uri gf-name))
+                     (method-uri (format nil "~A/method~{/~(~A~)~}"
+                                         gf-uri
+                                         (mapcar (lambda (s)
+                                                   (if (typep s 'sb-mop:eql-specializer)
+                                                       (format nil "eql-~A" (sb-mop:eql-specializer-object s))
+                                                       (symbol-name (class-name s))))
+                                                 specializers))))
+                (ariadne:add-triple graph method-uri +method-of+ gf-uri)
+                (ariadne:add-triple graph method-uri +in-package+ pkg-uri)
+                (ariadne:add-triple graph method-uri +type+ "method")
+                (dolist (spec specializers)
+                  (when (typep spec 'class)
+                    (let ((spec-name (class-name spec)))
+                      (unless (eq spec-name t)
+                        (ariadne:add-triple graph method-uri +specializes-on+
+                                            (symbol-uri spec-name))))))
+                ;; Source file from method definition
+                (handler-case
+                    (let ((source (sb-introspect:find-definition-source method)))
+                      (when (and source (sb-introspect:definition-source-pathname source))
+                        (ariadne:add-triple graph method-uri +source-file+
+                                            (make-literal (namestring
+                                                           (sb-introspect:definition-source-pathname source))))))
+                  (error () nil))))))))))
 
 (defun make-literal (value)
   "Wrap VALUE as an RDF literal for storage in the graph."
