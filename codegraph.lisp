@@ -220,8 +220,12 @@
                  (:special-variable :variable)
                  (:constant :variable)))
          (sources (when type
-                    (ignore-errors
-                     (sb-introspect:find-definition-sources-by-name sym type)))))
+                    (or (ignore-errors
+                         (sb-introspect:find-definition-sources-by-name sym type))
+                        ;; Conditions are classes but need :condition type for source lookup
+                        (when (eq type :class)
+                          (ignore-errors
+                           (sb-introspect:find-definition-sources-by-name sym :condition)))))))
     (when (and sources (sb-introspect:definition-source-pathname (first sources)))
       (ariadne:add-triple graph uri +source-file+
                           (make-literal (namestring (sb-introspect:definition-source-pathname (first sources))))))))
